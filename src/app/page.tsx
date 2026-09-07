@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { SpaceBackground } from "@/components/SpaceBackground";
-import { LanternField } from "@/components/LanternField";
+import { LanternField, type LanternFieldHandle } from "@/components/LanternField";
 
 const subscribeNoop = () => () => {};
 
 export default function DisplayPage() {
   const [count, setCount] = useState(0);
+  const fieldRef = useRef<LanternFieldHandle>(null);
 
   // origin รู้ได้เฉพาะฝั่ง client — ใช้ค่าว่างตอน SSR เพื่อไม่ให้ hydration ไม่ตรงกัน
   const origin = useSyncExternalStore(
@@ -22,7 +23,7 @@ export default function DisplayPage() {
   return (
     <main className="relative h-dvh w-full overflow-hidden">
       <SpaceBackground />
-      <LanternField onCount={setCount} />
+      <LanternField ref={fieldRef} onCount={setCount} />
 
       <header className="pointer-events-none absolute left-[3vw] top-[3vh]">
         <h1
@@ -75,6 +76,22 @@ export default function DisplayPage() {
           </div>
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={() => fieldRef.current?.clear()}
+        aria-label="เคลียร์โคมบนจอ"
+        title="เคลียร์โคมบนจอ"
+        className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white/60 backdrop-blur-md transition hover:bg-white/20 hover:text-white active:scale-90"
+      >
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 7h16" />
+          <path d="M9 7V4h6v3" />
+          <path d="M6 7l1 13h10l1-13" />
+          <path d="M10 11v6" />
+          <path d="M14 11v6" />
+        </svg>
+      </button>
     </main>
   );
 }

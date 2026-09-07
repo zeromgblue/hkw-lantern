@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Lantern } from "./Lantern";
 import { getDesign, LANTERN_DESIGNS } from "@/lib/lanternDesigns";
 import { fetchRecentLanterns, listenForNewLanterns, type LanternDoc } from "@/lib/lanterns";
@@ -32,7 +32,13 @@ const SPAWN_INTERVAL_MS = 400;
 const BASE_WIDTH = 170;
 const LANES = 11;
 
-export function LanternField({ onCount }: { onCount?: (total: number) => void }) {
+export type LanternFieldHandle = {
+  /** กวาดโคมที่ลอยอยู่บนจอออกทั้งหมด (ไม่แตะข้อมูลใน Firestore) */
+  clear: () => void;
+};
+
+export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: number) => void }>(
+  function LanternField({ onCount }, ref) {
   const [flying, setFlying] = useState<Flying[]>([]);
   const queue = useRef<LanternDoc[]>([]);
   const timers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
@@ -86,6 +92,15 @@ export function LanternField({ onCount }: { onCount?: (total: number) => void })
     seen.current.add(doc.id);
     queue.current.push(doc);
   }, []);
+
+  useImperativeHandle(ref, () => ({
+    clear: () => {
+      queue.current = [];
+      timers.current.forEach(clearTimeout);
+      timers.current.clear();
+      setFlying([]);
+    },
+  }));
 
   useEffect(() => {
     const drain = setInterval(() => {
@@ -172,4 +187,5 @@ export function LanternField({ onCount }: { onCount?: (total: number) => void })
       })}
     </div>
   );
-}
+  },
+);
