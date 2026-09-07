@@ -1,0 +1,63 @@
+import {
+  addDoc,
+  collection,
+  getDocs,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  Timestamp,
+  where,
+  type DocumentData,
+  type QueryDocumentSnapshot,
+} from "firebase/firestore";
+import { db } from "./firebase";
+
+export const MAX_TEXT_LENGTH = 40;
+
+export type LanternDoc = {
+  id: string;
+  text: string;
+  designId: string;
+};
+
+const lanternsRef = () => collection(db, "lanterns");
+
+function toLantern(doc: QueryDocumentSnapshot<DocumentData>): LanternDoc {
+  const data = doc.data();
+  return {
+    id: doc.id,
+    text: typeof data.text === "string" ? data.text : "",
+    designId: typeof data.designId === "string" ? data.designId : "classic-red",
+  };
+}
+
+export async function submitLantern(text: string, designId: string): Promise<void> {
+  await addDoc(lanternsRef(), {
+    text: text.trim().slice(0, MAX_TEXT_LENGTH),
+    designId,
+    createdAt: serverTimestamp(),
+  });
+}
+
+/** โคมล่าสุดไม่กี่ดวง เอาไว้เติมท้องฟ้าตอนเปิดจอใหม่ ๆ จะได้ไม่ว่างเปล่า */
+export async function fetchRecentLanterns(count = 10): Promise<LanternDoc[]> {
+  const snapshot = await getDocs(query(lanternsRef(), orderBy("createdAt", "desc"), limit(count)));
+  return snapshot.docs.map(toLantern).reverse();
+}
+
+/** ฟังเฉพาะโคมที่ถูกส่งเข้ามาหลังจากเปิดหน้าจอนี้ */
+export function listenForNewLanterns(onNew: (lantern: LanternDoc) => void): () => void {
+  const q = query(
+    lanternsRef(),
+    where("createdAt", ">", Timestamp.now()),
+    orderBy("createdAt", "asc"),
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    for (const change of snapshot.docChanges()) {
+      if (change.type === "added") onNew(toLantern(change.doc));
+    }
+  });
+}

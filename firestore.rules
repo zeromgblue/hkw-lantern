@@ -1,0 +1,22 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /lanterns/{lanternId} {
+      allow read: if true;
+
+      allow create: if request.resource.data.keys().hasOnly(['text', 'designId', 'createdAt'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 40
+        && request.resource.data.designId in [
+          'classic-red', 'nebula-purple', 'galaxy-blue', 'sakura-pink',
+          'jade-green', 'aurora', 'silver-moon', 'sunset',
+          'cosmic-gold', 'shooting-star', 'ufo', 'cosmic-rainbow'
+        ]
+        && request.resource.data.createdAt == request.time;
+
+      allow update, delete: if false;
+    }
+  }
+}

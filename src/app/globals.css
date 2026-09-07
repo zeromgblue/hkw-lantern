@@ -1,0 +1,174 @@
+@import "tailwindcss";
+
+:root {
+  --space-deep: #030412;
+  --space-mid: #0b1030;
+  --space-violet: #1b0f3d;
+}
+
+@theme inline {
+  --font-sans: var(--font-thai);
+  --font-thai: var(--font-thai);
+}
+
+html,
+body {
+  background: var(--space-deep);
+  color: #e8ecff;
+  font-family: var(--font-thai), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- ท้องฟ้าอวกาศ ---------- */
+
+.space-sky {
+  background:
+    radial-gradient(120% 90% at 50% 108%, rgba(88, 40, 160, 0.55) 0%, transparent 60%),
+    radial-gradient(90% 70% at 12% 8%, rgba(30, 64, 175, 0.45) 0%, transparent 62%),
+    linear-gradient(180deg, var(--space-deep) 0%, var(--space-mid) 48%, var(--space-violet) 100%);
+}
+
+.nebula {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.5;
+  will-change: transform;
+  animation: nebula-drift var(--dur, 90s) ease-in-out infinite alternate;
+}
+
+@keyframes nebula-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(var(--dx, 40px), var(--dy, -30px), 0) scale(1.12);
+  }
+}
+
+.shooting-star {
+  position: absolute;
+  width: 140px;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.9) 100%);
+  border-radius: 2px;
+  opacity: 0;
+  transform: rotate(18deg);
+  animation: shoot var(--dur, 9s) linear infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+@keyframes shoot {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(18deg);
+  }
+  4% {
+    opacity: 1;
+  }
+  16% {
+    opacity: 0;
+    transform: translate3d(60vw, 20vh, 0) rotate(18deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(60vw, 20vh, 0) rotate(18deg);
+  }
+}
+
+/* ---------- โคมลอย ---------- */
+
+.lantern-rise {
+  position: absolute;
+  bottom: 0;
+  left: var(--x, 50%);
+  will-change: transform;
+  animation: rise var(--dur, 30s) linear forwards;
+}
+
+@keyframes rise {
+  0% {
+    opacity: 0;
+    transform: translate3d(-50%, 20vh, 0);
+  }
+  5% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-50%, -125vh, 0);
+  }
+}
+
+.lantern-sway {
+  will-change: transform;
+  animation: sway var(--sway-dur, 7s) ease-in-out infinite alternate;
+}
+
+@keyframes sway {
+  from {
+    transform: translateX(calc(var(--sway) * -1)) rotate(calc(var(--tilt) * -1));
+  }
+  to {
+    transform: translateX(var(--sway)) rotate(var(--tilt));
+  }
+}
+
+.lantern-halo {
+  position: absolute;
+  left: 50%;
+  top: 41%;
+  z-index: 0;
+  width: 165%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--glow) 0%, transparent 66%);
+  opacity: 0.4;
+  animation: halo-pulse 3.6s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes halo-pulse {
+  from {
+    opacity: 0.28;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 0.5;
+    transform: scale(1.06);
+  }
+}
+
+.lantern-flame {
+  animation: flicker 2.4s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+
+@keyframes flicker {
+  0% {
+    opacity: 0.78;
+  }
+  40% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.86;
+  }
+  100% {
+    opacity: 0.96;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nebula,
+  .shooting-star,
+  .lantern-sway,
+  .lantern-halo,
+  .lantern-flame {
+    animation: none;
+  }
+}
