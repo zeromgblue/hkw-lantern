@@ -4,12 +4,29 @@ import { useRef, useState, useSyncExternalStore } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { SpaceBackground } from "@/components/SpaceBackground";
 import { LanternField, type LanternFieldHandle } from "@/components/LanternField";
+import { clearAllLanterns } from "@/lib/lanterns";
 
 const subscribeNoop = () => () => {};
 
 export default function DisplayPage() {
   const [count, setCount] = useState(0);
+  const [clearing, setClearing] = useState(false);
   const fieldRef = useRef<LanternFieldHandle>(null);
+
+  const handleClear = async () => {
+    if (clearing) return;
+    if (!window.confirm("ลบโคมทั้งหมดถาวร ทั้งบนจอและในฐานข้อมูล?")) return;
+
+    fieldRef.current?.clear();
+    setClearing(true);
+    try {
+      await clearAllLanterns();
+    } catch (error) {
+      console.error("ลบโคมไม่สำเร็จ", error);
+    } finally {
+      setClearing(false);
+    }
+  };
 
   // origin รู้ได้เฉพาะฝั่ง client — ใช้ค่าว่างตอน SSR เพื่อไม่ให้ hydration ไม่ตรงกัน
   const origin = useSyncExternalStore(
@@ -79,10 +96,11 @@ export default function DisplayPage() {
 
       <button
         type="button"
-        onClick={() => fieldRef.current?.clear()}
-        aria-label="เคลียร์โคมบนจอ"
-        title="เคลียร์โคมบนจอ"
-        className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white/60 backdrop-blur-md transition hover:bg-white/20 hover:text-white active:scale-90"
+        onClick={handleClear}
+        disabled={clearing}
+        aria-label="ลบโคมทั้งหมด"
+        title="ลบโคมทั้งหมด (ถาวร)"
+        className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white/60 backdrop-blur-md transition hover:bg-white/20 hover:text-white active:scale-90 disabled:opacity-40"
       >
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M4 7h16" />

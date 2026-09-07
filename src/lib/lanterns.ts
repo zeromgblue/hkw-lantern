@@ -9,6 +9,7 @@ import {
   serverTimestamp,
   Timestamp,
   where,
+  writeBatch,
   type DocumentData,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
@@ -45,6 +46,19 @@ export async function submitLantern(text: string, designId: string): Promise<voi
 export async function fetchRecentLanterns(count = 10): Promise<LanternDoc[]> {
   const snapshot = await getDocs(query(lanternsRef(), orderBy("createdAt", "desc"), limit(count)));
   return snapshot.docs.map(toLantern).reverse();
+}
+
+/** ลบโคมทั้งหมดถาวรจาก Firestore (ใช้กับปุ่มถังขยะบนจอใหญ่) */
+export async function clearAllLanterns(): Promise<void> {
+  const snapshot = await getDocs(lanternsRef());
+  const docs = snapshot.docs;
+
+  // writeBatch จำกัด 500 การเขียนต่อ batch — ลบเป็นชุดกันเผื่อมีเยอะ
+  for (let i = 0; i < docs.length; i += 400) {
+    const batch = writeBatch(db);
+    for (const doc of docs.slice(i, i + 400)) batch.delete(doc.ref);
+    await batch.commit();
+  }
 }
 
 /** ฟังเฉพาะโคมที่ถูกส่งเข้ามาหลังจากเปิดหน้าจอนี้ */
