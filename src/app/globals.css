@@ -97,7 +97,7 @@ body {
 @keyframes rise {
   0% {
     opacity: 0;
-    transform: translate3d(-50%, 6vh, 0);
+    transform: translate3d(-50%, var(--rise-start, 6vh), 0);
   }
   1.5% {
     opacity: 1;
@@ -215,57 +215,142 @@ body {
   }
 }
 
-.chairman-banner {
-  position: absolute;
-  left: 50%;
-  top: 44%;
-  z-index: 3;
+.chairman-stack {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  transform: translate(-50%, -50%) scaleX(0.02);
-  transform-origin: center;
-  opacity: 0;
-  pointer-events: none;
-  transition: transform 0.75s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease;
 }
 
-.chairman-banner-open {
-  transform: translate(-50%, -50%) scaleX(1);
+.chairman-flash {
+  position: absolute;
+  left: 50%;
+  top: 88%;
+  width: 32px;
+  height: 32px;
+  margin: -16px 0 0 -16px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fffaf0 0%, #ffd84d 40%, transparent 72%);
+  opacity: 0;
+  z-index: 4;
+  pointer-events: none;
+  animation: chairman-flash-pop 0.75s ease-out forwards;
+}
+
+@keyframes chairman-flash-pop {
+  0% {
+    transform: scale(0.3);
+    opacity: 0.95;
+  }
+  55% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(6);
+    opacity: 0;
+  }
+}
+
+/* จดหมายกระดาษกางลงจากกระบอกใต้โคม สไตล์จีน — กระดาษเก่า ขลิบแดง มีรอยพับ */
+.chairman-scroll-v {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: -8px;
+  transform: scaleY(0.02);
+  transform-origin: top center;
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.9s cubic-bezier(0.22, 1.4, 0.36, 1), opacity 0.3s ease;
+}
+
+.chairman-scroll-v-open {
+  transform: scaleY(1);
   opacity: 1;
 }
 
-.chairman-banner-rod {
+.chairman-scroll-cap {
   flex: none;
-  width: 5px;
-  height: 30px;
-  border-radius: 3px;
-  background: linear-gradient(180deg, #fff2b0, #caa227);
-  box-shadow: 0 0 8px rgba(255, 216, 77, 0.7);
+  width: 32px;
+  height: 16px;
+  margin-bottom: -2px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #e8c873, #a3781f);
+  box-shadow: 0 0 8px rgba(255, 216, 77, 0.55);
+  z-index: 1;
 }
 
-.chairman-banner-body {
+.chairman-scroll-paper-v {
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  width: clamp(260px, 46vw, 620px);
-  padding: 14px 24px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 216, 77, 0.45);
-  background: rgba(20, 12, 2, 0.72);
-  backdrop-filter: blur(2px);
+  align-items: center;
+  gap: 6px;
+  width: clamp(210px, 25vw, 340px);
+  padding: 22px 20px 28px;
+  border: 2px solid #a3242c;
+  background:
+    repeating-linear-gradient(0deg, rgba(140, 100, 55, 0.09) 0 2px, transparent 2px 44px),
+    linear-gradient(165deg, #faf1da 0%, #f1e0b6 58%, #e7d09d 100%);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), inset 0 0 30px rgba(120, 80, 30, 0.18);
+  overflow: hidden;
 }
 
-.chairman-banner-text {
+.chairman-scroll-paper-v::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(200deg, transparent 30%, rgba(255, 255, 255, 0.65) 48%, transparent 66%);
+  transform: translateY(-140%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chairman-scroll-v-open .chairman-scroll-paper-v::after {
+  animation: chairman-sheen-v 1.1s ease-out 0.25s 1;
+}
+
+@keyframes chairman-sheen-v {
+  0% {
+    transform: translateY(-140%);
+    opacity: 0;
+  }
+  16% {
+    opacity: 0.85;
+  }
+  60% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: translateY(140%);
+    opacity: 0;
+  }
+}
+
+.chairman-blossom {
+  position: absolute;
+  left: 14px;
+  bottom: 12px;
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle, #e8829a 0 3px, transparent 3.5px) 0 0,
+    radial-gradient(circle, #f2a3b5 0 2.4px, transparent 2.9px) 9px 4px,
+    radial-gradient(circle, #e8829a 0 2px, transparent 2.5px) 4px 11px;
+  background-repeat: no-repeat;
+  opacity: 0.85;
+}
+
+.chairman-scroll-text {
   display: block;
   font-family: var(--font-thai), sans-serif;
   font-weight: 700;
-  font-size: clamp(15px, 1.9vw, 26px);
-  line-height: 1.35;
-  color: #fff6cd;
-  text-shadow: 0 0 12px rgba(255, 216, 77, 0.6);
-  text-align: left;
+  font-size: clamp(15px, 1.75vw, 24px);
+  line-height: 1.45;
+  color: #3a2108;
+  text-align: center;
 }
 
 .chairman-caret {
@@ -274,7 +359,7 @@ body {
   height: 1em;
   margin-left: 2px;
   vertical-align: -0.15em;
-  background: #fff6cd;
+  background: #3a2108;
   animation: chairman-caret-blink 0.8s steps(1) infinite;
 }
 
@@ -284,19 +369,40 @@ body {
   }
 }
 
-.chairman-banner-name {
+.chairman-scroll-name {
   display: block;
-  font-size: clamp(11px, 1vw, 15px);
-  font-weight: 600;
-  color: #ffe9a8;
+  font-size: clamp(12px, 1.05vw, 16px);
+  font-weight: 700;
+  color: #8a1f1f;
+  text-align: center;
   opacity: 0;
   transform: translateY(-4px);
   transition: opacity 0.6s ease, transform 0.6s ease;
 }
 
-.chairman-banner-name-visible {
+.chairman-scroll-name-visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+.chairman-seal {
+  position: absolute;
+  right: 16px;
+  bottom: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 3px;
+  background: #a3242c;
+  border: 1.5px solid #7a1418;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transform: scale(1.8) rotate(-14deg);
+  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.chairman-seal-visible {
+  opacity: 0.9;
+  transform: scale(1) rotate(-8deg);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -307,7 +413,9 @@ body {
   .lantern-flame,
   .chairman-halo,
   .firework-particle,
-  .chairman-caret {
+  .chairman-caret,
+  .chairman-flash,
+  .chairman-scroll-paper-v::after {
     animation: none;
   }
 }

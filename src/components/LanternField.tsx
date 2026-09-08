@@ -31,7 +31,7 @@ const MAX_ACTIVE = 45;
 const SPAWN_INTERVAL_MS = 400;
 const BASE_WIDTH = 170;
 const LANES = 11;
-const CHAIRMAN_SCALE = 2.5;
+const CHAIRMAN_SCALE = 1.8;
 const CHAIRMAN_DURATION = 52;
 const CHAIRMAN_OPEN_DELAY_MS = 2200;
 const CHAIRMAN_TYPE_START_MS = 2900;
@@ -63,17 +63,17 @@ type FireworkParticle = {
 const FIREWORK_COLORS = ["#ffd84d", "#ff8a3c", "#fff6cd", "#ffb703", "#ff8fa3", "#7dd3fc"];
 
 // สุ่มตำแหน่งพลุ — เรียกจาก timer callback เท่านั้น ห้ามเรียกระหว่าง render
-function makeFireworkParticles(): FireworkParticle[] {
-  return Array.from({ length: 26 }, (_, i) => {
-    const angle = (i / 26) * Math.PI * 2 + Math.random() * 0.2;
-    const dist = 55 + Math.random() * 80;
+function makeFireworkParticles(count = 26, spread = 1): FireworkParticle[] {
+  return Array.from({ length: count }, (_, i) => {
+    const angle = (i / count) * Math.PI * 2 + Math.random() * 0.2;
+    const dist = (55 + Math.random() * 80) * spread;
     return {
       dx: Math.cos(angle) * dist,
       dy: Math.sin(angle) * dist,
       delay: Math.random() * 0.12,
       dur: 0.8 + Math.random() * 0.5,
       color: FIREWORK_COLORS[i % FIREWORK_COLORS.length],
-      size: 3 + Math.random() * 3,
+      size: 3 + Math.random() * 3.5 * spread,
     };
   });
 }
@@ -108,24 +108,29 @@ function ChairmanLantern({ item, design }: { item: Flying; design: LanternDesign
   const [phase, setPhase] = useState<ChairmanPhase>("rising");
   const [typedCount, setTypedCount] = useState(0);
   const [burst, setBurst] = useState<{ id: number; particles: FireworkParticle[] } | null>(null);
+  const [flashId, setFlashId] = useState<number | null>(null);
 
   const eventChars = useMemo(() => splitGraphemes(item.doc.text), [item.doc.text]);
   const nameText = item.doc.subtitle ?? "";
 
-  // ไล่ลำดับ: ลอยขึ้น -> กางป้ายออกสองข้าง -> เริ่มพิมพ์ข้อความ
+  // ไล่ลำดับ: ลอยขึ้น -> โคมแตกเป็นแสงวาบแล้วกลายเป็นจดหมายกางออกสองข้าง -> พิมพ์ข้อความ
   useEffect(() => {
-    const toOpening = setTimeout(() => setPhase("opening"), CHAIRMAN_OPEN_DELAY_MS);
+    const toOpening = setTimeout(() => {
+      setPhase("opening");
+      setFlashId(Date.now());
+      // พลุชุดใหญ่ตรงจังหวะที่โคมแปลงร่างเป็นจดหมาย
+      setBurst({ id: Date.now() + 1, particles: makeFireworkParticles(42, 1.5) });
+    }, CHAIRMAN_OPEN_DELAY_MS);
     const toTyping = setTimeout(() => setPhase("typing"), CHAIRMAN_TYPE_START_MS);
 
-    // ยิงพลุครั้งแรกผ่าน timer (ไม่เรียก setState ตรง ๆ ใน effect body) แล้ววนซ้ำทุก 3.4 วิ
-    const triggerBurst = () => setBurst({ id: Date.now(), particles: makeFireworkParticles() });
-    const kickBurst = setTimeout(triggerBurst, 0);
-    const burstInterval = setInterval(triggerBurst, 3400);
+    // พลุระลอกต่อ ๆ ไปวนซ้ำทุก 3.4 วิ ตลอดการลอย
+    const burstInterval = setInterval(() => {
+      setBurst({ id: Date.now(), particles: makeFireworkParticles() });
+    }, 3400);
 
     return () => {
       clearTimeout(toOpening);
       clearTimeout(toTyping);
-      clearTimeout(kickBurst);
       clearInterval(burstInterval);
     };
   }, []);
@@ -148,13 +153,13 @@ function ChairmanLantern({ item, design }: { item: Flying; design: LanternDesign
   }, [phase, typedCount, eventChars.length]);
 
   const typedText = eventChars.slice(0, typedCount).join("");
-  const bannerOpen = phase !== "rising";
+  const scrollOpen = phase !== "rising";
   const showCaret = phase === "typing";
   const showName = phase === "revealName";
 
   return (
     <div
-      className="lantern-sway relative"
+      className="lantern-sway relative chairman-stack"
       style={
         {
           "--sway": `${item.sway}px`,
@@ -165,6 +170,8 @@ function ChairmanLantern({ item, design }: { item: Flying; design: LanternDesign
     >
       <div className="lantern-halo chairman-halo" style={{ "--glow": design.glow } as React.CSSProperties} />
       {burst && <FireworkBurst key={burst.id} particles={burst.particles} />}
+      {flashId !== null && <span key={flashId} className="chairman-flash" />}
+
       <Lantern
         design={design}
         width={BASE_WIDTH * item.scale}
@@ -175,18 +182,20 @@ function ChairmanLantern({ item, design }: { item: Flying; design: LanternDesign
         }}
       />
 
-      <div className={`chairman-banner${bannerOpen ? " chairman-banner-open" : ""}`}>
-        <span className="chairman-banner-rod" />
-        <span className="chairman-banner-body">
-          <span className="chairman-banner-text">
+      {/* จดหมายกางออกลงด้านล่าง ห้อยจากกระบอกใต้โคม เหมือนโคมไฟจีน */}
+      <div className={`chairman-scroll-v${scrollOpen ? " chairman-scroll-v-open" : ""}`}>
+        <span className="chairman-scroll-cap" />
+        <span className="chairman-scroll-paper-v">
+          <span className="chairman-scroll-text">
             {typedText}
             {showCaret && <span className="chairman-caret" />}
           </span>
-          <span className={`chairman-banner-name${showName ? " chairman-banner-name-visible" : ""}`}>
+          <span className={`chairman-scroll-name${showName ? " chairman-scroll-name-visible" : ""}`}>
             {nameText}
           </span>
+          <span className="chairman-blossom" aria-hidden="true" />
+          <span className={`chairman-seal${showName ? " chairman-seal-visible" : ""}`} />
         </span>
-        <span className="chairman-banner-rod" />
       </div>
     </div>
   );
@@ -331,6 +340,8 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
               {
                 "--x": `${item.x}%`,
                 "--dur": `${item.duration}s`,
+                // โคมประธาน+จดหมายรวมกันสูงกว่าโคมทั่วไปมาก เริ่มให้สูงขึ้นจะได้ไม่โผล่พ้นจอตอนกางจดหมาย
+                "--rise-start": isChairman ? "-20vh" : undefined,
                 zIndex: isChairman ? 30 : undefined,
               } as React.CSSProperties
             }
