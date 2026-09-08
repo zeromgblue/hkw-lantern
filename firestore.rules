@@ -16,6 +16,16 @@ service cloud.firestore {
         ]
         && request.resource.data.createdAt == request.time;
 
+      // โคมประธาน — เนื้อหาคงที่ ไม่รับข้อความอิสระจากผู้ใช้ (หน้า /admin เท่านั้นที่เรียกใช้)
+      allow create: if request.resource.data.keys().hasOnly(['text', 'subtitle', 'designId', 'variant', 'createdAt'])
+        && request.resource.data.variant == 'chairman'
+        && request.resource.data.designId == 'chairman-gold'
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 80
+        && request.resource.data.subtitle is string
+        && request.resource.data.subtitle.size() <= 80
+        && request.resource.data.createdAt == request.time;
+
       // delete เปิดสาธารณะเพราะเว็บนี้ไม่มีระบบล็อกอิน (ปุ่มลบทั้งหมดอยู่บนจอใหญ่)
       allow delete: if true;
       allow update: if false;
