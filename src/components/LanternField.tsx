@@ -17,8 +17,9 @@ const DEMO_TEXTS = [
   "สุขภาพแข็งแรง",
 ];
 
-// โคมทั่วไปโคจรรอบโคมประธานแทนการลอยขึ้นแล้วหายไป — จัดเข้าวงแหวนแบบ golden-angle
-// เพื่อกระจายพื้นที่สม่ำเสมอไม่ให้กระจุกทับกันเมื่อโคมสะสมมากขึ้นเรื่อย ๆ
+// โคมทั่วไปลอยนิ่งกระจายรอบโคมประธานแทนการลอยขึ้นแล้วหายไป — จัดตำแหน่งแบบ phyllotaxis
+// (มุมทองคำ + รัศมีตาม sqrt(ลำดับ)) แบบเดียวกับเมล็ดทานตะวัน ทำให้แต่ละดวงห่างเพื่อนบ้านสม่ำเสมอ
+// ไม่กระจุกซ้อนทับกันแม้สะสมเพิ่มขึ้นเรื่อย ๆ โดยไม่ต้องรื้อตำแหน่งโคมเก่า
 type Flying = {
   key: string;
   doc: LanternDoc;
@@ -27,9 +28,7 @@ type Flying = {
   sway: number;
   tilt: number;
   radiusVmin: number;
-  periodSec: number;
-  phaseSec: number;
-  direction: 1 | -1;
+  angleDeg: number;
   twinkleDur: number;
   twinkleDelay: number;
 };
@@ -46,11 +45,8 @@ type ChairmanItem = {
 const MAX_ACTIVE = 150;
 const SPAWN_INTERVAL_MS = 400;
 const BASE_WIDTH = 170;
-const ORBIT_RING_COUNT = 6;
-const ORBIT_BASE_RADIUS_VMIN = 14;
-const ORBIT_RADIUS_STEP_VMIN = 6;
-const ORBIT_BASE_PERIOD_SEC = 70;
-const ORBIT_PERIOD_STEP_SEC = 16;
+const SCATTER_BASE_RADIUS_VMIN = 16;
+const SCATTER_RADIUS_STEP_VMIN = 2.6;
 const GOLDEN_ANGLE_DEG = 137.50776;
 const CHAIRMAN_SCALE = 1.4;
 const CHAIRMAN_IMG_WIDTH = 210;
@@ -392,17 +388,14 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
           timers.current.add(rocketTimer);
         });
       } else {
-        // จัดโคมเข้าวงแหวนรอบโคมประธานแบบ golden-angle กระจายสม่ำเสมอ
-        // ไม่ทับกันแม้จะสะสมเพิ่มขึ้นเรื่อย ๆ โดยไม่ต้องรื้อตำแหน่งโคมเก่า
+        // จัดตำแหน่งแบบ phyllotaxis (มุมทองคำ + รัศมีตาม sqrt(ลำดับ)) เหมือนเมล็ดทานตะวัน
+        // ทำให้ทุกดวงห่างเพื่อนบ้านสม่ำเสมอไม่เบียดกัน แล้วลอยนิ่งอยู่ตรงนั้น (แค่โยกเบา ๆ ไม่โคจร)
+        // ใช้ index วนรอบตามเพดานจำนวนที่แสดงจริง กันตำแหน่งไหลออกจอเมื่อสะสมนาน ๆ
         const idx = orbitIndex.current++;
-        const ring = idx % ORBIT_RING_COUNT;
-        const posInRing = Math.floor(idx / ORBIT_RING_COUNT);
-        const angleDeg = posInRing * GOLDEN_ANGLE_DEG + ring * (360 / ORBIT_RING_COUNT) * 0.5;
+        const posIdx = idx % MAX_ACTIVE;
+        const angleDeg = posIdx * GOLDEN_ANGLE_DEG + (Math.random() - 0.5) * 6;
         const radiusVmin =
-          ORBIT_BASE_RADIUS_VMIN + ring * ORBIT_RADIUS_STEP_VMIN + (Math.random() - 0.5) * 2.5;
-        const periodSec =
-          ORBIT_BASE_PERIOD_SEC + ring * ORBIT_PERIOD_STEP_SEC + (Math.random() - 0.5) * 10;
-        const phaseSec = (angleDeg / 360) * periodSec;
+          SCATTER_BASE_RADIUS_VMIN + SCATTER_RADIUS_STEP_VMIN * Math.sqrt(posIdx) + (Math.random() - 0.5) * 1.6;
 
         const item: Flying = {
           key: `${doc.id}-${serial.current++}`,
@@ -412,10 +405,7 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
           sway: 12 + Math.random() * 26,
           tilt: 2 + Math.random() * 4,
           radiusVmin,
-          periodSec,
-          phaseSec,
-          // สุ่มทิศทางโคจรอิสระต่อโคม (ตามเข็ม/ทวนเข็ม) ไม่ให้ทุกดวงหมุนไปทางเดียวกันหมด
-          direction: Math.random() < 0.5 ? 1 : -1,
+          angleDeg,
           twinkleDur: 2 + Math.random() * 3,
           twinkleDelay: Math.random() * 3,
         };
@@ -514,29 +504,12 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
       {flying.map((item) => {
         const design = getDesign(item.doc.designId);
         return (
-          <div
-            key={item.key}
-            className="orbit-anchor"
-            style={{ "--dir": item.direction } as React.CSSProperties}
-          >
-            <div
-              className="orbit-spin"
-              style={
-                {
-                  "--period": `${item.periodSec}s`,
-                  "--phase": `${-item.phaseSec}s`,
-                } as React.CSSProperties
-              }
-            >
+          <div key={item.key} className="orbit-anchor">
+            <div className="scatter-rotate" style={{ "--angle": `${item.angleDeg}deg` } as React.CSSProperties}>
               <div className="orbit-radius" style={{ "--radius": `${item.radiusVmin}vmin` } as React.CSSProperties}>
                 <div
-                  className="orbit-counter-spin"
-                  style={
-                    {
-                      "--period": `${item.periodSec}s`,
-                      "--phase": `${-item.phaseSec}s`,
-                    } as React.CSSProperties
-                  }
+                  className="scatter-counter-rotate"
+                  style={{ "--angle": `${item.angleDeg}deg` } as React.CSSProperties}
                 >
                   <div
                     className="orbit-twinkle"

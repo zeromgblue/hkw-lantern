@@ -111,9 +111,11 @@ body {
   }
 }
 
-/* ---------- โคมทั่วไปโคจรรอบโคมประธาน ---------- */
-/* กลไก: หมุน (spin) -> เลื่อนออกตามรัศมี (radius) -> หมุนกลับเท่ากัน (counter-spin)
-   เพื่อให้ตัวโคมไม่หมุนตามวงโคจร แต่ยังคงโคจรเป็นวงกลมรอบจุดศูนย์กลางได้ */
+/* ---------- ตำแหน่งโคมทั่วไป (ลอยนิ่งกระจายรอบโคมประธาน) + วงแหวนดาวโคจรของโคมประธาน ---------- */
+/* กลไกร่วม: หมุน (rotate) -> เลื่อนออกตามรัศมี (radius) -> หมุนกลับเท่ากัน (counter-rotate)
+   เพื่อให้เนื้อหาไม่เอียงตามมุมที่จัดวาง แต่ยังอยู่ตำแหน่งรัศมี/มุมที่ต้องการรอบจุดศูนย์กลางได้
+   โคมทั่วไปใช้แบบ "หมุนนิ่งครั้งเดียว" (.scatter-rotate/.scatter-counter-rotate) ไม่โคจรต่อเนื่อง
+   ส่วนดาวประดับรอบโคมประธานยังใช้แบบ "หมุนต่อเนื่อง" (.orbit-spin/.orbit-counter-spin) เหมือนเดิม */
 
 .orbit-anchor {
   position: absolute;
@@ -121,6 +123,24 @@ body {
   top: 48%;
   width: 0;
   height: 0;
+}
+
+.scatter-rotate {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform: rotate(var(--angle, 0deg));
+}
+
+.scatter-counter-rotate {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  transform: rotate(calc(var(--angle, 0deg) * -1));
+  animation: orbit-fade-in 1s ease-out forwards;
 }
 
 .orbit-spin {
@@ -158,14 +178,12 @@ body {
   animation-fill-mode: none, forwards;
 }
 
-/* --dir: 1 (ตามเข็ม, ค่าเริ่มต้น) หรือ -1 (ทวนเข็ม) — สลับทิศทางโคจรของโคมแต่ละดวงได้อิสระ
-   โดย spin กับ counter-spin จะกลับทิศพร้อมกันเสมอ (อ่าน --dir ตัวเดียวกัน) จึงยังหักล้างกันสนิท */
 @keyframes orbit-rotate-cw {
   from {
     transform: rotate(0deg);
   }
   to {
-    transform: rotate(calc(360deg * var(--dir, 1)));
+    transform: rotate(360deg);
   }
 }
 
@@ -174,7 +192,7 @@ body {
     transform: rotate(0deg);
   }
   to {
-    transform: rotate(calc(-360deg * var(--dir, 1)));
+    transform: rotate(-360deg);
   }
 }
 
