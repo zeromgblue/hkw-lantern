@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Kanit, Noto_Sans_Thai } from "next/font/google";
+import { Chonburi, Kanit, Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
 
 const notoThai = Noto_Sans_Thai({
@@ -12,6 +12,13 @@ const kanit = Kanit({
   subsets: ["thai", "latin"],
   weight: ["500", "600", "700"],
   variable: "--font-display",
+});
+
+// ฟอนต์ไทยลายป้ายดั้งเดิม ตัวหนา ใช้กับข้อความในจดหมายโคมประธาน
+const chonburi = Chonburi({
+  subsets: ["thai", "latin"],
+  weight: "400",
+  variable: "--font-letter",
 });
 
 export const metadata: Metadata = {
@@ -28,7 +35,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="th" className={`${notoThai.variable} ${kanit.variable}`}>
+    <html lang="th" className={`${notoThai.variable} ${kanit.variable} ${chonburi.variable}`}>
       <body className="antialiased">{children}</body>
     </html>
   );

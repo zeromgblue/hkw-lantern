@@ -46,15 +46,15 @@ export default function DisplayPage() {
       <SpaceBackground />
       <LanternField ref={fieldRef} onCount={setCount} />
 
-      <header className="pointer-events-none absolute left-[3vw] top-[3vh]">
+      <header className="pointer-events-none absolute left-[3vw] top-[3vh] max-w-[70vw]">
         <h1
-          className="text-[clamp(28px,3.4vw,64px)] font-bold tracking-wide text-white"
+          className="text-[clamp(24px,2.8vw,56px)] font-bold tracking-wide text-white"
           style={{
             fontFamily: "var(--font-display), sans-serif",
             textShadow: "0 0 28px rgba(168,120,255,0.75), 0 0 60px rgba(88,60,190,0.5)",
           }}
         >
-          โคมลอยจักรวาล
+          เปิดโลกปฐมวัยไทขอนแก่น ประจำปี 2569
         </h1>
         <p className="mt-1 text-[clamp(13px,1.15vw,22px)] text-indigo-200/80">
           ส่งคำอธิษฐานของคุณล่องไปกับดวงดาว

@@ -17,29 +17,48 @@ const DEMO_TEXTS = [
   "สุขภาพแข็งแรง",
 ];
 
+// โคมทั่วไปโคจรรอบโคมประธานแทนการลอยขึ้นแล้วหายไป — จัดเข้าวงแหวนแบบ golden-angle
+// เพื่อกระจายพื้นที่สม่ำเสมอไม่ให้กระจุกทับกันเมื่อโคมสะสมมากขึ้นเรื่อย ๆ
 type Flying = {
   key: string;
   doc: LanternDoc;
-  x: number;
   scale: number;
-  duration: number;
+  swayDuration: number;
+  sway: number;
+  tilt: number;
+  radiusVmin: number;
+  periodSec: number;
+  phaseSec: number;
+  twinkleDur: number;
+  twinkleDelay: number;
+};
+
+type ChairmanItem = {
+  key: string;
+  doc: LanternDoc;
+  scale: number;
   swayDuration: number;
   sway: number;
   tilt: number;
 };
 
-const MAX_ACTIVE = 45;
+const MAX_ACTIVE = 150;
 const SPAWN_INTERVAL_MS = 400;
 const BASE_WIDTH = 170;
-const LANES = 11;
+const ORBIT_RING_COUNT = 6;
+const ORBIT_BASE_RADIUS_VMIN = 14;
+const ORBIT_RADIUS_STEP_VMIN = 6;
+const ORBIT_BASE_PERIOD_SEC = 70;
+const ORBIT_PERIOD_STEP_SEC = 16;
+const GOLDEN_ANGLE_DEG = 137.50776;
 const CHAIRMAN_SCALE = 1.4;
 const CHAIRMAN_IMG_WIDTH = 210;
 const CHAIRMAN_IMG_RATIO = 1536 / 1024;
-const CHAIRMAN_DURATION = 11;
 const CHAIRMAN_OPEN_DELAY_MS = 1200;
 const CHAIRMAN_TYPE_START_MS = 3000;
 const CHAIRMAN_TYPE_INTERVAL_MS = 55;
 const CHAIRMAN_NAME_DELAY_MS = 500;
+const CHAIRMAN_FIREWORKS_DURATION_MS = 12000;
 
 function splitGraphemes(text: string): string[] {
   if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
@@ -185,7 +204,7 @@ function SkyRocketView({ rocket, onDone }: { rocket: SkyRocket; onDone: (id: num
 
 type ChairmanPhase = "rising" | "opening" | "typing" | "revealName";
 
-function ChairmanLantern({ item, design }: { item: Flying; design: LanternDesign }) {
+function ChairmanLantern({ item, design }: { item: ChairmanItem; design: LanternDesign }) {
   const [phase, setPhase] = useState<ChairmanPhase>("rising");
   const [typedCount, setTypedCount] = useState(0);
   const [burst, setBurst] = useState<{ id: number; particles: FireworkParticle[] } | null>(null);
@@ -194,7 +213,8 @@ function ChairmanLantern({ item, design }: { item: Flying; design: LanternDesign
   const eventChars = useMemo(() => splitGraphemes(item.doc.text), [item.doc.text]);
   const nameText = item.doc.subtitle ?? "";
 
-  // ไล่ลำดับ: ลอยขึ้น -> โคมแตกเป็นแสงวาบแล้วกลายเป็นจดหมายกางออกสองข้าง -> พิมพ์ข้อความ
+  // ไล่ลำดับ: ปรากฏตัว -> โคมแตกเป็นแสงวาบแล้วกลายเป็นจดหมายกางออกสองข้าง -> พิมพ์ข้อความ
+  // จากนั้นอยู่กลางจอถาวร (ไม่ลอยหายไปอีกต่อไป) พลุจะยิงต่อเนื่องแค่ช่วงแรกแล้วหยุด
   useEffect(() => {
     const toOpening = setTimeout(() => {
       setPhase("opening");
@@ -204,15 +224,17 @@ function ChairmanLantern({ item, design }: { item: Flying; design: LanternDesign
     }, CHAIRMAN_OPEN_DELAY_MS);
     const toTyping = setTimeout(() => setPhase("typing"), CHAIRMAN_TYPE_START_MS);
 
-    // พลุระลอกต่อ ๆ ไปวนซ้ำทุก 3.4 วิ ตลอดการลอย
+    // พลุระลอกต่อ ๆ ไปทุก 3.4 วิ แต่หยุดหลังจากช่วงเปิดตัว ไม่ยิงตลอดไป
     const burstInterval = setInterval(() => {
       setBurst({ id: Date.now(), particles: makeFireworkParticles() });
     }, 3400);
+    const stopBursts = setTimeout(() => clearInterval(burstInterval), CHAIRMAN_FIREWORKS_DURATION_MS);
 
     return () => {
       clearTimeout(toOpening);
       clearTimeout(toTyping);
       clearInterval(burstInterval);
+      clearTimeout(stopBursts);
     };
   }, []);
 
@@ -289,13 +311,14 @@ function ChairmanLantern({ item, design }: { item: Flying; design: LanternDesign
 export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: number) => void }>(
   function LanternField({ onCount }, ref) {
   const [flying, setFlying] = useState<Flying[]>([]);
+  const [chairman, setChairman] = useState<ChairmanItem | null>(null);
   const [rockets, setRockets] = useState<SkyRocket[]>([]);
   const queue = useRef<LanternDoc[]>([]);
   const timers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   const seen = useRef<Set<string>>(new Set());
   const serial = useRef(0);
   const total = useRef(0);
-  const lane = useRef(0);
+  const orbitIndex = useRef(0);
   const rocketSerial = useRef(0);
 
   const removeRocket = useCallback((id: number) => {
@@ -312,66 +335,58 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
   const spawn = useCallback(
     (doc: LanternDoc) => {
       const isChairman = doc.variant === "chairman";
-      const scale = isChairman ? CHAIRMAN_SCALE : 0.55 + Math.random() * 0.5;
-      const duration = isChairman ? CHAIRMAN_DURATION : 34 - (scale - 0.55) * 20;
-
-      let x: number;
-      if (isChairman) {
-        // โคมประธานลอยกลางจอ เด่นกว่าโคมทั่วไปที่กระจายเป็นเลน
-        x = 50 + (Math.random() - 0.5) * 6;
-      } else {
-        // กระจายโคมเป็นเลน กันไม่ให้กระจุกทับกันตอนคนส่งพร้อม ๆ กัน
-        lane.current = (lane.current + 2 + Math.floor(Math.random() * 5)) % LANES;
-        const laneWidth = 88 / LANES;
-        x = 6 + laneWidth * (lane.current + 0.5) + (Math.random() - 0.5) * laneWidth * 0.9;
-      }
-
-      const item: Flying = {
-        key: `${doc.id}-${serial.current++}`,
-        doc,
-        x,
-        scale,
-        duration,
-        swayDuration: isChairman ? 7 + Math.random() * 2 : 5 + Math.random() * 4,
-        sway: isChairman ? 8 + Math.random() * 6 : 12 + Math.random() * 26,
-        tilt: isChairman ? 1 + Math.random() : 2 + Math.random() * 4,
-      };
-
-      setFlying((prev) => {
-        const next = [...prev, item];
-        if (next.length <= MAX_ACTIVE) return next;
-
-        // ตัดโคมทั่วไปที่เก่าสุดทิ้งก่อนเมื่อล้น ห้ามตัดโคมประธานทิ้ง
-        const overflow = next.length - MAX_ACTIVE;
-        let toRemove = overflow;
-        const kept: Flying[] = [];
-        for (const f of next) {
-          if (toRemove > 0 && f.doc.variant !== "chairman") {
-            toRemove--;
-            continue;
-          }
-          kept.push(f);
-        }
-        return kept;
-      });
-
-      const timer = setTimeout(
-        () => {
-          timers.current.delete(timer);
-          setFlying((prev) => prev.filter((f) => f.key !== item.key));
-        },
-        duration * 1000 + 800,
-      );
-      timers.current.add(timer);
 
       if (isChairman) {
-        // ยิงพลุจากซ้าย-ขวาเป็นชุด ๆ ตลอดช่วงที่โคมประธานลอยอยู่
+        // โคมประธานอยู่กลางจอถาวร ไม่ลอยหายไปอีก
+        setChairman({
+          key: `${doc.id}-${serial.current++}`,
+          doc,
+          scale: CHAIRMAN_SCALE,
+          swayDuration: 7 + Math.random() * 2,
+          sway: 8 + Math.random() * 6,
+          tilt: 1 + Math.random(),
+        });
+
+        // ยิงพลุจากซ้าย-ขวาเป็นชุด ๆ ช่วงที่โคมประธานปรากฏตัว
         [200, 1900, 3600, 5300, 7000].forEach((delay) => {
           const rocketTimer = setTimeout(() => {
             timers.current.delete(rocketTimer);
             launchRocketBatch();
           }, delay);
           timers.current.add(rocketTimer);
+        });
+      } else {
+        // จัดโคมเข้าวงแหวนรอบโคมประธานแบบ golden-angle กระจายสม่ำเสมอ
+        // ไม่ทับกันแม้จะสะสมเพิ่มขึ้นเรื่อย ๆ โดยไม่ต้องรื้อตำแหน่งโคมเก่า
+        const idx = orbitIndex.current++;
+        const ring = idx % ORBIT_RING_COUNT;
+        const posInRing = Math.floor(idx / ORBIT_RING_COUNT);
+        const angleDeg = posInRing * GOLDEN_ANGLE_DEG + ring * (360 / ORBIT_RING_COUNT) * 0.5;
+        const radiusVmin =
+          ORBIT_BASE_RADIUS_VMIN + ring * ORBIT_RADIUS_STEP_VMIN + (Math.random() - 0.5) * 2.5;
+        const periodSec =
+          ORBIT_BASE_PERIOD_SEC + ring * ORBIT_PERIOD_STEP_SEC + (Math.random() - 0.5) * 10;
+        const phaseSec = (angleDeg / 360) * periodSec;
+
+        const item: Flying = {
+          key: `${doc.id}-${serial.current++}`,
+          doc,
+          scale: 0.55 + Math.random() * 0.5,
+          swayDuration: 5 + Math.random() * 4,
+          sway: 12 + Math.random() * 26,
+          tilt: 2 + Math.random() * 4,
+          radiusVmin,
+          periodSec,
+          phaseSec,
+          twinkleDur: 2 + Math.random() * 3,
+          twinkleDelay: Math.random() * 3,
+        };
+
+        setFlying((prev) => {
+          const next = [...prev, item];
+          // กันไว้ไม่ให้สะสมไม่จำกัดจริง ๆ (ป้องกันปัญหาประสิทธิภาพระยะยาว)
+          // ตัดโคมที่เก่าสุดทิ้งเมื่อล้นเพดานที่ตั้งไว้กว้าง ๆ
+          return next.length > MAX_ACTIVE ? next.slice(next.length - MAX_ACTIVE) : next;
         });
       }
 
@@ -394,6 +409,7 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
       timers.current.clear();
       setFlying([]);
       setRockets([]);
+      setChairman(null);
     },
   }));
 

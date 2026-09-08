@@ -442,10 +442,10 @@ body {
 
 .chairman-scroll-text {
   display: block;
-  font-family: var(--font-thai), sans-serif;
-  font-weight: 700;
+  font-family: var(--font-letter), var(--font-thai), sans-serif;
+  font-weight: 400;
   font-size: clamp(23px, 2.8vw, 40px);
-  line-height: 1.45;
+  line-height: 1.6;
   color: #3a2108;
   text-align: center;
 }
@@ -468,8 +468,9 @@ body {
 
 .chairman-scroll-name {
   display: block;
+  font-family: var(--font-letter), var(--font-thai), sans-serif;
   font-size: clamp(17px, 1.7vw, 26px);
-  font-weight: 700;
+  font-weight: 400;
   color: #8a1f1f;
   text-align: center;
   opacity: 0;
