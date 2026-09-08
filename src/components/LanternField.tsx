@@ -31,7 +31,7 @@ const MAX_ACTIVE = 45;
 const SPAWN_INTERVAL_MS = 400;
 const BASE_WIDTH = 170;
 const LANES = 11;
-const CHAIRMAN_SCALE = 2.2;
+const CHAIRMAN_SCALE = 1.4;
 const CHAIRMAN_DURATION = 55;
 const CHAIRMAN_OPEN_DELAY_MS = 2200;
 const CHAIRMAN_TYPE_START_MS = 4000;
@@ -341,8 +341,6 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
               {
                 "--x": `${item.x}%`,
                 "--dur": `${item.duration}s`,
-                // โคมประธาน+จดหมายรวมกันสูงกว่าโคมทั่วไปมาก เริ่มให้สูงขึ้นจะได้ไม่โผล่พ้นจอตอนกางจดหมาย
-                "--rise-start": isChairman ? "-34vh" : undefined,
                 zIndex: isChairman ? 30 : undefined,
               } as React.CSSProperties
             }
