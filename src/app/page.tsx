@@ -22,8 +22,11 @@ export default function DisplayPage() {
     setClearing(true);
     try {
       await clearAllLanterns();
+      setCount(0);
     } catch (error) {
       console.error("ลบโคมไม่สำเร็จ", error);
+      const detail = error instanceof Error ? error.message : String(error);
+      window.alert(`ลบโคมจากฐานข้อมูลไม่สำเร็จ: ${detail}`);
     } finally {
       setClearing(false);
     }
