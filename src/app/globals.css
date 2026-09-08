@@ -84,52 +84,114 @@ body {
   }
 }
 
-/* ---------- โคมลอย ---------- */
+/* ---------- โคมประธานกลางจอถาวร ---------- */
 
-.lantern-rise {
+.chairman-anchor {
   position: absolute;
-  bottom: 0;
-  left: var(--x, 50%);
-  will-change: transform;
-  animation: rise var(--dur, 30s) linear forwards;
+  left: 50%;
+  top: 46%;
+  transform: translate(-50%, -50%);
+  animation: chairman-anchor-in 1s ease-out;
 }
 
-@keyframes rise {
-  0% {
+@keyframes chairman-anchor-in {
+  from {
     opacity: 0;
-    transform: translate3d(-50%, 6vh, 0);
+    transform: translate(-50%, -50%) scale(0.7);
   }
-  1.5% {
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* ---------- โคมทั่วไปโคจรรอบโคมประธาน ---------- */
+/* กลไก: หมุน (spin) -> เลื่อนออกตามรัศมี (radius) -> หมุนกลับเท่ากัน (counter-spin)
+   เพื่อให้ตัวโคมไม่หมุนตามวงโคจร แต่ยังคงโคจรเป็นวงกลมรอบจุดศูนย์กลางได้ */
+
+.orbit-anchor {
+  position: absolute;
+  left: 50%;
+  top: 48%;
+  width: 0;
+  height: 0;
+}
+
+.orbit-spin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  animation-name: orbit-rotate-cw;
+  animation-duration: var(--period, 80s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-delay: var(--phase, 0s);
+}
+
+.orbit-radius {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform: translateX(var(--radius, 20vmin));
+}
+
+.orbit-counter-spin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  animation-name: orbit-rotate-ccw, orbit-fade-in;
+  animation-duration: var(--period, 80s), 1s;
+  animation-timing-function: linear, ease-out;
+  animation-iteration-count: infinite, 1;
+  animation-delay: var(--phase, 0s), 0s;
+  animation-fill-mode: none, forwards;
+}
+
+@keyframes orbit-rotate-cw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes orbit-rotate-ccw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes orbit-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
     opacity: 1;
   }
-  92% {
-    opacity: 1;
+}
+
+.orbit-twinkle {
+  animation: orbit-twinkle-pulse var(--twinkle-dur, 3s) ease-in-out infinite alternate;
+  animation-delay: var(--twinkle-delay, 0s);
+}
+
+@keyframes orbit-twinkle-pulse {
+  0% {
+    opacity: 0.55;
+    filter: brightness(0.85) saturate(0.9);
   }
   100% {
-    opacity: 0;
-    transform: translate3d(-50%, -125vh, 0);
-  }
-}
-
-/* โคมประธาน — ลอยอยู่สั้นกว่าโคมทั่วไป แล้วค่อย ๆ จางหายไปนาน ๆ แทนที่จะวูบตอนท้าย */
-.chairman-rise {
-  animation-name: chairman-rise-fade;
-}
-
-@keyframes chairman-rise-fade {
-  0% {
-    opacity: 0;
-    transform: translate3d(-50%, 6vh, 0);
-  }
-  3% {
     opacity: 1;
-  }
-  60% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(-50%, -40vh, 0);
+    filter: brightness(1.15) saturate(1.05);
   }
 }
 
@@ -515,7 +577,10 @@ body {
   .firework-rocket,
   .chairman-caret,
   .chairman-flash,
-  .chairman-scroll-paper-v::after {
+  .chairman-scroll-paper-v::after,
+  .orbit-spin,
+  .orbit-counter-spin,
+  .orbit-twinkle {
     animation: none;
   }
 }

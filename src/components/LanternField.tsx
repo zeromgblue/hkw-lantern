@@ -458,50 +458,74 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
       {rockets.map((r) => (
         <SkyRocketView key={r.id} rocket={r} onDone={removeRocket} />
       ))}
+
+      {chairman && (
+        <div className="chairman-anchor" style={{ zIndex: 30 } as React.CSSProperties}>
+          <ChairmanLantern item={chairman} design={getDesign(chairman.doc.designId)} />
+        </div>
+      )}
+
       {flying.map((item) => {
         const design = getDesign(item.doc.designId);
-        const isChairman = item.doc.variant === "chairman";
         return (
-          <div
-            key={item.key}
-            className={`lantern-rise${isChairman ? " chairman-rise" : ""}`}
-            style={
-              {
-                "--x": `${item.x}%`,
-                "--dur": `${item.duration}s`,
-                zIndex: isChairman ? 30 : undefined,
-              } as React.CSSProperties
-            }
-          >
-            {isChairman ? (
-              <ChairmanLantern item={item} design={design} />
-            ) : (
-              <div
-                className="lantern-sway relative"
-                style={
-                  {
-                    "--sway": `${item.sway}px`,
-                    "--sway-dur": `${item.swayDuration}s`,
-                    "--tilt": `${item.tilt}deg`,
-                  } as React.CSSProperties
-                }
-              >
+          <div key={item.key} className="orbit-anchor">
+            <div
+              className="orbit-spin"
+              style={
+                {
+                  "--period": `${item.periodSec}s`,
+                  "--phase": `${-item.phaseSec}s`,
+                } as React.CSSProperties
+              }
+            >
+              <div className="orbit-radius" style={{ "--radius": `${item.radiusVmin}vmin` } as React.CSSProperties}>
                 <div
-                  className="lantern-halo"
-                  style={{ "--glow": design.glow } as React.CSSProperties}
-                />
-                <Lantern
-                  design={design}
-                  text={item.doc.text}
-                  width={BASE_WIDTH * item.scale}
-                  style={{
-                    position: "relative",
-                    zIndex: 1,
-                    filter: `drop-shadow(0 0 ${18 * item.scale}px ${design.glow}aa)`,
-                  }}
-                />
+                  className="orbit-counter-spin"
+                  style={
+                    {
+                      "--period": `${item.periodSec}s`,
+                      "--phase": `${-item.phaseSec}s`,
+                    } as React.CSSProperties
+                  }
+                >
+                  <div
+                    className="orbit-twinkle"
+                    style={
+                      {
+                        "--twinkle-dur": `${item.twinkleDur}s`,
+                        "--twinkle-delay": `${item.twinkleDelay}s`,
+                      } as React.CSSProperties
+                    }
+                  >
+                    <div
+                      className="lantern-sway relative"
+                      style={
+                        {
+                          "--sway": `${item.sway}px`,
+                          "--sway-dur": `${item.swayDuration}s`,
+                          "--tilt": `${item.tilt}deg`,
+                        } as React.CSSProperties
+                      }
+                    >
+                      <div
+                        className="lantern-halo"
+                        style={{ "--glow": design.glow } as React.CSSProperties}
+                      />
+                      <Lantern
+                        design={design}
+                        text={item.doc.text}
+                        width={BASE_WIDTH * item.scale}
+                        style={{
+                          position: "relative",
+                          zIndex: 1,
+                          filter: `drop-shadow(0 0 ${18 * item.scale}px ${design.glow}aa)`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-            )}
+            </div>
           </div>
         );
       })}
