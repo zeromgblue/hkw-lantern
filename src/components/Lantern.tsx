@@ -304,6 +304,30 @@ function Pattern({ pattern, color }: { pattern: LanternPattern; color: string })
           ))}
         </g>
       );
+    case "medallion":
+      return (
+        <g opacity={0.85}>
+          <circle cx={60} cy={88} r={32} fill="none" stroke={color} strokeWidth={2.4} />
+          <circle cx={60} cy={88} r={26.5} fill="none" stroke={color} strokeWidth={1} opacity={0.55} />
+          {/* ศาลาจีนกลางเหรียญ */}
+          <path d="M44,100 L44,86 L60,72 L76,86 L76,100 Z" fill="none" stroke={color} strokeWidth={1.7} />
+          <path d="M38,86 L60,68 L82,86" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" />
+          <line x1="52" y1="100" x2="52" y2="88" stroke={color} strokeWidth={1.3} />
+          <line x1="68" y1="100" x2="68" y2="88" stroke={color} strokeWidth={1.3} />
+          <line x1="60" y1="100" x2="60" y2="85" stroke={color} strokeWidth={1.3} />
+          {/* เมฆลอยขนาบข้าง */}
+          <path
+            d="M26,68 c3,-5 9,-5 11,-1 c4,-4 10,-1 10,4 c-6,2 -16,2 -21,-3 Z"
+            fill={color}
+            opacity={0.55}
+          />
+          <path
+            d="M73,106 c3,-5 9,-5 11,-1 c4,-4 10,-1 10,4 c-6,2 -16,2 -21,-3 Z"
+            fill={color}
+            opacity={0.55}
+          />
+        </g>
+      );
   }
 }
 

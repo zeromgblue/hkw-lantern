@@ -12,7 +12,8 @@ export type LanternPattern =
   | "constellation"
   | "comet"
   | "rings"
-  | "holo";
+  | "holo"
+  | "medallion";
 
 export type LanternDesign = {
   id: string;
@@ -153,7 +154,7 @@ export const LANTERN_DESIGNS: LanternDesign[] = [
     id: "chairman-gold",
     name: "โคมประธาน",
     shape: "hex",
-    pattern: "clouds",
+    pattern: "medallion",
     body: ["#fff2c9", "#d21f2e", "#4a0c12"],
     glow: "#ff8a3c",
     trim: "#f0c14b",
