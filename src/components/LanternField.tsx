@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { Lantern } from "./Lantern";
 import { getDesign, LANTERN_DESIGNS, type LanternDesign } from "@/lib/lanternDesigns";
 import { fetchRecentLanterns, listenForNewLanterns, type LanternDoc } from "@/lib/lanterns";
@@ -32,9 +33,11 @@ const SPAWN_INTERVAL_MS = 400;
 const BASE_WIDTH = 170;
 const LANES = 11;
 const CHAIRMAN_SCALE = 1.4;
-const CHAIRMAN_DURATION = 55;
-const CHAIRMAN_OPEN_DELAY_MS = 2200;
-const CHAIRMAN_TYPE_START_MS = 4000;
+const CHAIRMAN_IMG_WIDTH = 210;
+const CHAIRMAN_IMG_RATIO = 1536 / 1024;
+const CHAIRMAN_DURATION = 11;
+const CHAIRMAN_OPEN_DELAY_MS = 1200;
+const CHAIRMAN_TYPE_START_MS = 3000;
 const CHAIRMAN_TYPE_INTERVAL_MS = 55;
 const CHAIRMAN_NAME_DELAY_MS = 500;
 
@@ -173,9 +176,12 @@ function ChairmanLantern({ item, design }: { item: Flying; design: LanternDesign
       {burst && <FireworkBurst key={burst.id} particles={burst.particles} />}
       {flashId !== null && <span key={flashId} className="chairman-flash" />}
 
-      <Lantern
-        design={design}
-        width={BASE_WIDTH * item.scale}
+      <Image
+        src="/chairman-lantern.png"
+        alt=""
+        width={Math.round(CHAIRMAN_IMG_WIDTH * item.scale)}
+        height={Math.round(CHAIRMAN_IMG_WIDTH * item.scale * CHAIRMAN_IMG_RATIO)}
+        unoptimized
         style={{
           position: "relative",
           zIndex: 1,
@@ -336,7 +342,7 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
         return (
           <div
             key={item.key}
-            className="lantern-rise"
+            className={`lantern-rise${isChairman ? " chairman-rise" : ""}`}
             style={
               {
                 "--x": `${item.x}%`,

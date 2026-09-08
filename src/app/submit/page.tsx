@@ -114,7 +114,7 @@ export default function SubmitPage() {
             <div className="mt-8">
               <div className="mb-2 text-sm font-medium text-indigo-100/90">เลือกลายโคม</div>
               <div className="grid grid-cols-4 gap-2">
-                {LANTERN_DESIGNS.map((item) => {
+                {LANTERN_DESIGNS.filter((item) => item.id !== "chairman-gold").map((item) => {
                   const active = item.id === designId;
                   return (
                     <button

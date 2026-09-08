@@ -111,6 +111,28 @@ body {
   }
 }
 
+/* โคมประธาน — ลอยอยู่สั้นกว่าโคมทั่วไป แล้วค่อย ๆ จางหายไปนาน ๆ แทนที่จะวูบตอนท้าย */
+.chairman-rise {
+  animation-name: chairman-rise-fade;
+}
+
+@keyframes chairman-rise-fade {
+  0% {
+    opacity: 0;
+    transform: translate3d(-50%, 6vh, 0);
+  }
+  3% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-50%, -40vh, 0);
+  }
+}
+
 .lantern-sway {
   will-change: transform;
   animation: sway var(--sway-dur, 7s) ease-in-out infinite alternate;
