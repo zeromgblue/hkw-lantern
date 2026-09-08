@@ -261,6 +261,58 @@ body {
   }
 }
 
+/* จรวดพลุจากพื้นซ้าย-ขวาของจอ พุ่งขึ้นแล้วระเบิดกระจาย */
+.firework-rocket-wrap {
+  position: absolute;
+  bottom: 0;
+  z-index: 25;
+  pointer-events: none;
+}
+
+.firework-rocket {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 50%;
+  background: var(--rcolor, #ffd84d);
+  box-shadow: 0 0 10px 3px var(--rcolor, #ffd84d);
+  transform: translateY(0);
+  animation: firework-launch var(--flight, 1100ms) cubic-bezier(0.15, 0.6, 0.35, 1) forwards;
+}
+
+.firework-rocket::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 2.5px;
+  height: 44px;
+  margin-left: -1.25px;
+  background: linear-gradient(to bottom, var(--rcolor, #ffd84d), transparent);
+  opacity: 0.6;
+}
+
+@keyframes firework-launch {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(calc(var(--peak, 30vh) * -1));
+  }
+}
+
+.firework-rocket-burst {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
 .chairman-stack {
   display: flex;
   flex-direction: column;
@@ -459,6 +511,7 @@ body {
   .chairman-halo,
   .chairman-halo-ring,
   .firework-particle,
+  .firework-rocket,
   .chairman-caret,
   .chairman-flash,
   .chairman-scroll-paper-v::after {

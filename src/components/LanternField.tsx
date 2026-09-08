@@ -105,6 +105,84 @@ function FireworkBurst({ particles }: { particles: FireworkParticle[] }) {
   );
 }
 
+type SkyRocket = {
+  id: number;
+  xPercent: number;
+  peakPercent: number;
+  color: string;
+  flightMs: number;
+};
+
+// สุ่มจรวดพลุ — เรียกจาก timer callback เท่านั้น ห้ามเรียกระหว่าง render
+function makeRocket(side: "left" | "right", id: number): SkyRocket {
+  const xPercent = side === "left" ? 6 + Math.random() * 16 : 78 + Math.random() * 16;
+  return {
+    id,
+    xPercent,
+    peakPercent: 26 + Math.random() * 20,
+    color: FIREWORK_COLORS[Math.floor(Math.random() * FIREWORK_COLORS.length)],
+    flightMs: 950 + Math.random() * 350,
+  };
+}
+
+function SkyRocketView({ rocket, onDone }: { rocket: SkyRocket; onDone: (id: number) => void }) {
+  const [phase, setPhase] = useState<"launch" | "burst">("launch");
+  const [particles, setParticles] = useState<FireworkParticle[] | null>(null);
+
+  useEffect(() => {
+    const toBurst = setTimeout(() => {
+      setPhase("burst");
+      setParticles(makeFireworkParticles(34, 1.3));
+    }, rocket.flightMs);
+    const toDone = setTimeout(() => onDone(rocket.id), rocket.flightMs + 1600);
+    return () => {
+      clearTimeout(toBurst);
+      clearTimeout(toDone);
+    };
+  }, [rocket, onDone]);
+
+  return (
+    <div className="firework-rocket-wrap" style={{ left: `${rocket.xPercent}%` }}>
+      {phase === "launch" && (
+        <span
+          className="firework-rocket"
+          style={
+            {
+              "--rcolor": rocket.color,
+              "--peak": `${rocket.peakPercent}vh`,
+              "--flight": `${rocket.flightMs}ms`,
+            } as React.CSSProperties
+          }
+        />
+      )}
+      {phase === "burst" && particles && (
+        <div
+          className="firework-rocket-burst"
+          style={{ transform: `translateY(-${rocket.peakPercent}vh)` }}
+        >
+          {particles.map((p, i) => (
+            <span
+              key={i}
+              className="firework-particle"
+              style={
+                {
+                  "--dx": `${p.dx}px`,
+                  "--dy": `${p.dy}px`,
+                  "--dur": `${p.dur}s`,
+                  "--delay": `${p.delay}s`,
+                  "--pcolor": p.color,
+                  width: `${p.size}px`,
+                  height: `${p.size}px`,
+                } as React.CSSProperties
+              }
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type ChairmanPhase = "rising" | "opening" | "typing" | "revealName";
 
 function ChairmanLantern({ item, design }: { item: Flying; design: LanternDesign }) {
@@ -211,12 +289,25 @@ function ChairmanLantern({ item, design }: { item: Flying; design: LanternDesign
 export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: number) => void }>(
   function LanternField({ onCount }, ref) {
   const [flying, setFlying] = useState<Flying[]>([]);
+  const [rockets, setRockets] = useState<SkyRocket[]>([]);
   const queue = useRef<LanternDoc[]>([]);
   const timers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   const seen = useRef<Set<string>>(new Set());
   const serial = useRef(0);
   const total = useRef(0);
   const lane = useRef(0);
+  const rocketSerial = useRef(0);
+
+  const removeRocket = useCallback((id: number) => {
+    setRockets((prev) => prev.filter((r) => r.id !== id));
+  }, []);
+
+  // ยิงพลุจากซ้ายและขวาพร้อมกันเป็นชุด ๆ
+  const launchRocketBatch = useCallback(() => {
+    const left = makeRocket("left", rocketSerial.current++);
+    const right = makeRocket("right", rocketSerial.current++);
+    setRockets((prev) => [...prev, left, right]);
+  }, []);
 
   const spawn = useCallback(
     (doc: LanternDoc) => {
@@ -273,10 +364,21 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
       );
       timers.current.add(timer);
 
+      if (isChairman) {
+        // ยิงพลุจากซ้าย-ขวาเป็นชุด ๆ ตลอดช่วงที่โคมประธานลอยอยู่
+        [200, 1900, 3600, 5300, 7000].forEach((delay) => {
+          const rocketTimer = setTimeout(() => {
+            timers.current.delete(rocketTimer);
+            launchRocketBatch();
+          }, delay);
+          timers.current.add(rocketTimer);
+        });
+      }
+
       total.current += 1;
       onCount?.(total.current);
     },
-    [onCount],
+    [onCount, launchRocketBatch],
   );
 
   const enqueue = useCallback((doc: LanternDoc) => {
@@ -291,6 +393,7 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
       timers.current.forEach(clearTimeout);
       timers.current.clear();
       setFlying([]);
+      setRockets([]);
     },
   }));
 
@@ -336,6 +439,9 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {rockets.map((r) => (
+        <SkyRocketView key={r.id} rocket={r} onDone={removeRocket} />
+      ))}
       {flying.map((item) => {
         const design = getDesign(item.doc.designId);
         const isChairman = item.doc.variant === "chairman";
