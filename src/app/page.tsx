@@ -11,6 +11,7 @@ const subscribeNoop = () => () => {};
 export default function DisplayPage() {
   const [count, setCount] = useState(0);
   const [clearing, setClearing] = useState(false);
+  const [qrExpanded, setQrExpanded] = useState(false);
   const fieldRef = useRef<LanternFieldHandle>(null);
 
   const handleClear = async () => {
@@ -73,13 +74,20 @@ export default function DisplayPage() {
 
       <div className="pointer-events-none absolute bottom-[4vh] right-[3vw]">
         <div className="flex items-center gap-5 rounded-3xl border border-white/15 bg-white/8 p-5 backdrop-blur-md">
-          <div className="rounded-2xl bg-white p-3">
+          <button
+            type="button"
+            onClick={() => setQrExpanded(true)}
+            disabled={!submitUrl}
+            aria-label="ขยาย QR code"
+            title="กดเพื่อขยาย QR code"
+            className="pointer-events-auto rounded-2xl bg-white p-3 transition hover:scale-105 active:scale-95 disabled:pointer-events-none"
+          >
             {submitUrl ? (
               <QRCodeSVG value={submitUrl} size={132} level="M" />
             ) : (
               <div className="h-[132px] w-[132px] animate-pulse rounded bg-slate-200" />
             )}
-          </div>
+          </button>
           <div className="max-w-[16vw]">
             <div
               className="text-[clamp(16px,1.5vw,28px)] font-semibold text-white"
@@ -93,6 +101,23 @@ export default function DisplayPage() {
           </div>
         </div>
       </div>
+
+      {qrExpanded && submitUrl && (
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setQrExpanded(false)}
+          onKeyDown={(e) => e.key === "Escape" && setQrExpanded(false)}
+          className="absolute inset-0 z-50 flex cursor-pointer flex-col items-center justify-center gap-6 bg-black/80 backdrop-blur-sm"
+        >
+          <div className="rounded-3xl bg-white p-8">
+            <QRCodeSVG value={submitUrl} size={480} level="M" />
+          </div>
+          <p className="text-[clamp(18px,2vw,32px)] font-semibold text-white">
+            สแกนเพื่อปล่อยโคม — แตะที่ใดก็ได้เพื่อปิด
+          </p>
+        </div>
+      )}
 
       <button
         type="button"

@@ -97,9 +97,9 @@ body {
 @keyframes rise {
   0% {
     opacity: 0;
-    transform: translate3d(-50%, 20vh, 0);
+    transform: translate3d(-50%, 6vh, 0);
   }
-  5% {
+  1.5% {
     opacity: 1;
   }
   92% {
