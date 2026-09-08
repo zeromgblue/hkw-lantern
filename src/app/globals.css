@@ -158,12 +158,14 @@ body {
   animation-fill-mode: none, forwards;
 }
 
+/* --dir: 1 (ตามเข็ม, ค่าเริ่มต้น) หรือ -1 (ทวนเข็ม) — สลับทิศทางโคจรของโคมแต่ละดวงได้อิสระ
+   โดย spin กับ counter-spin จะกลับทิศพร้อมกันเสมอ (อ่าน --dir ตัวเดียวกัน) จึงยังหักล้างกันสนิท */
 @keyframes orbit-rotate-cw {
   from {
     transform: rotate(0deg);
   }
   to {
-    transform: rotate(360deg);
+    transform: rotate(calc(360deg * var(--dir, 1)));
   }
 }
 
@@ -172,7 +174,7 @@ body {
     transform: rotate(0deg);
   }
   to {
-    transform: rotate(-360deg);
+    transform: rotate(calc(-360deg * var(--dir, 1)));
   }
 }
 

@@ -29,6 +29,7 @@ type Flying = {
   radiusVmin: number;
   periodSec: number;
   phaseSec: number;
+  direction: 1 | -1;
   twinkleDur: number;
   twinkleDelay: number;
 };
@@ -413,6 +414,8 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
           radiusVmin,
           periodSec,
           phaseSec,
+          // สุ่มทิศทางโคจรอิสระต่อโคม (ตามเข็ม/ทวนเข็ม) ไม่ให้ทุกดวงหมุนไปทางเดียวกันหมด
+          direction: Math.random() < 0.5 ? 1 : -1,
           twinkleDur: 2 + Math.random() * 3,
           twinkleDelay: Math.random() * 3,
         };
@@ -511,7 +514,11 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
       {flying.map((item) => {
         const design = getDesign(item.doc.designId);
         return (
-          <div key={item.key} className="orbit-anchor">
+          <div
+            key={item.key}
+            className="orbit-anchor"
+            style={{ "--dir": item.direction } as React.CSSProperties}
+          >
             <div
               className="orbit-spin"
               style={
