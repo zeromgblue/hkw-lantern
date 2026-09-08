@@ -150,6 +150,17 @@ export const LANTERN_DESIGNS: LanternDesign[] = [
     textColor: "#f0fff2",
   },
   {
+    id: "chairman-gold",
+    name: "โคมประธาน",
+    shape: "round",
+    pattern: "rays",
+    body: ["#fffbe0", "#ffcb3d", "#7a4a06"],
+    glow: "#ffd84d",
+    trim: "#fff2b0",
+    accent: "#fff6cf",
+    textColor: "#fffaea",
+  },
+  {
     id: "cosmic-rainbow",
     name: "รุ้งจักรวาล",
     shape: "round",

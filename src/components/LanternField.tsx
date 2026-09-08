@@ -2,7 +2,7 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Lantern } from "./Lantern";
-import { getDesign, LANTERN_DESIGNS } from "@/lib/lanternDesigns";
+import { getDesign, LANTERN_DESIGNS, type LanternDesign } from "@/lib/lanternDesigns";
 import { fetchRecentLanterns, listenForNewLanterns, type LanternDoc } from "@/lib/lanterns";
 
 const DEMO_TEXTS = [
@@ -31,11 +31,123 @@ const MAX_ACTIVE = 45;
 const SPAWN_INTERVAL_MS = 400;
 const BASE_WIDTH = 170;
 const LANES = 11;
+const CHAIRMAN_SCALE = 2.5;
+const CHAIRMAN_DURATION = 48;
+const CHAIRMAN_TEXT_SWAP_MS = 6000;
 
 export type LanternFieldHandle = {
   /** กวาดโคมที่ลอยอยู่บนจอออกทั้งหมด (ไม่แตะข้อมูลใน Firestore) */
   clear: () => void;
 };
+
+type FireworkParticle = {
+  dx: number;
+  dy: number;
+  delay: number;
+  dur: number;
+  color: string;
+  size: number;
+};
+
+const FIREWORK_COLORS = ["#ffd84d", "#ff8a3c", "#fff6cd", "#ffb703", "#ff8fa3", "#7dd3fc"];
+
+// สุ่มตำแหน่งพลุ — เรียกจาก timer callback เท่านั้น ห้ามเรียกระหว่าง render
+function makeFireworkParticles(): FireworkParticle[] {
+  return Array.from({ length: 26 }, (_, i) => {
+    const angle = (i / 26) * Math.PI * 2 + Math.random() * 0.2;
+    const dist = 55 + Math.random() * 80;
+    return {
+      dx: Math.cos(angle) * dist,
+      dy: Math.sin(angle) * dist,
+      delay: Math.random() * 0.12,
+      dur: 0.8 + Math.random() * 0.5,
+      color: FIREWORK_COLORS[i % FIREWORK_COLORS.length],
+      size: 3 + Math.random() * 3,
+    };
+  });
+}
+
+function FireworkBurst({ particles }: { particles: FireworkParticle[] }) {
+  return (
+    <div className="firework-burst" aria-hidden="true">
+      {particles.map((p, i) => (
+        <span
+          key={i}
+          className="firework-particle"
+          style={
+            {
+              "--dx": `${p.dx}px`,
+              "--dy": `${p.dy}px`,
+              "--dur": `${p.dur}s`,
+              "--delay": `${p.delay}s`,
+              "--pcolor": p.color,
+              width: `${p.size}px`,
+              height: `${p.size}px`,
+            } as React.CSSProperties
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
+function ChairmanLantern({ item, design }: { item: Flying; design: LanternDesign }) {
+  const [showName, setShowName] = useState(false);
+  const [fading, setFading] = useState(false);
+  const [burst, setBurst] = useState<{ id: number; particles: FireworkParticle[] } | null>(null);
+
+  useEffect(() => {
+    const fadeOut = setTimeout(() => setFading(true), CHAIRMAN_TEXT_SWAP_MS - 400);
+    const swap = setTimeout(() => {
+      setShowName(true);
+      setFading(false);
+    }, CHAIRMAN_TEXT_SWAP_MS);
+
+    // ยิงพลุครั้งแรกผ่าน timer (ไม่เรียก setState ตรง ๆ ใน effect body) แล้ววนซ้ำทุก 3.4 วิ
+    const triggerBurst = () => setBurst({ id: Date.now(), particles: makeFireworkParticles() });
+    const kickBurst = setTimeout(triggerBurst, 0);
+    const burstInterval = setInterval(triggerBurst, 3400);
+
+    return () => {
+      clearTimeout(fadeOut);
+      clearTimeout(swap);
+      clearTimeout(kickBurst);
+      clearInterval(burstInterval);
+    };
+  }, []);
+
+  const text = showName ? item.doc.subtitle ?? item.doc.text : item.doc.text;
+
+  return (
+    <div
+      className="lantern-sway relative"
+      style={
+        {
+          "--sway": `${item.sway}px`,
+          "--sway-dur": `${item.swayDuration}s`,
+          "--tilt": `${item.tilt}deg`,
+        } as React.CSSProperties
+      }
+    >
+      <div className="lantern-halo chairman-halo" style={{ "--glow": design.glow } as React.CSSProperties} />
+      {burst && <FireworkBurst key={burst.id} particles={burst.particles} />}
+      <div style={{ opacity: fading ? 0 : 1, transition: "opacity 0.5s ease" }}>
+        <Lantern
+          design={design}
+          text={text}
+          wrapMaxPerLine={13}
+          wrapMaxLines={4}
+          width={BASE_WIDTH * item.scale}
+          style={{
+            position: "relative",
+            zIndex: 1,
+            filter: `drop-shadow(0 0 ${30 * item.scale}px ${design.glow}cc)`,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
 
 export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: number) => void }>(
   function LanternField({ onCount }, ref) {
@@ -49,27 +161,48 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
 
   const spawn = useCallback(
     (doc: LanternDoc) => {
-      const scale = 0.55 + Math.random() * 0.5;
-      const duration = 34 - (scale - 0.55) * 20;
+      const isChairman = doc.variant === "chairman";
+      const scale = isChairman ? CHAIRMAN_SCALE : 0.55 + Math.random() * 0.5;
+      const duration = isChairman ? CHAIRMAN_DURATION : 34 - (scale - 0.55) * 20;
 
-      // กระจายโคมเป็นเลน กันไม่ให้กระจุกทับกันตอนคนส่งพร้อม ๆ กัน
-      lane.current = (lane.current + 2 + Math.floor(Math.random() * 5)) % LANES;
-      const laneWidth = 88 / LANES;
+      let x: number;
+      if (isChairman) {
+        // โคมประธานลอยกลางจอ เด่นกว่าโคมทั่วไปที่กระจายเป็นเลน
+        x = 50 + (Math.random() - 0.5) * 6;
+      } else {
+        // กระจายโคมเป็นเลน กันไม่ให้กระจุกทับกันตอนคนส่งพร้อม ๆ กัน
+        lane.current = (lane.current + 2 + Math.floor(Math.random() * 5)) % LANES;
+        const laneWidth = 88 / LANES;
+        x = 6 + laneWidth * (lane.current + 0.5) + (Math.random() - 0.5) * laneWidth * 0.9;
+      }
 
       const item: Flying = {
         key: `${doc.id}-${serial.current++}`,
         doc,
-        x: 6 + laneWidth * (lane.current + 0.5) + (Math.random() - 0.5) * laneWidth * 0.9,
+        x,
         scale,
         duration,
-        swayDuration: 5 + Math.random() * 4,
-        sway: 12 + Math.random() * 26,
-        tilt: 2 + Math.random() * 4,
+        swayDuration: isChairman ? 7 + Math.random() * 2 : 5 + Math.random() * 4,
+        sway: isChairman ? 8 + Math.random() * 6 : 12 + Math.random() * 26,
+        tilt: isChairman ? 1 + Math.random() : 2 + Math.random() * 4,
       };
 
       setFlying((prev) => {
         const next = [...prev, item];
-        return next.length > MAX_ACTIVE ? next.slice(next.length - MAX_ACTIVE) : next;
+        if (next.length <= MAX_ACTIVE) return next;
+
+        // ตัดโคมทั่วไปที่เก่าสุดทิ้งก่อนเมื่อล้น ห้ามตัดโคมประธานทิ้ง
+        const overflow = next.length - MAX_ACTIVE;
+        let toRemove = overflow;
+        const kept: Flying[] = [];
+        for (const f of next) {
+          if (toRemove > 0 && f.doc.variant !== "chairman") {
+            toRemove--;
+            continue;
+          }
+          kept.push(f);
+        }
+        return kept;
       });
 
       const timer = setTimeout(
@@ -146,6 +279,7 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       {flying.map((item) => {
         const design = getDesign(item.doc.designId);
+        const isChairman = item.doc.variant === "chairman";
         return (
           <div
             key={item.key}
@@ -154,34 +288,39 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
               {
                 "--x": `${item.x}%`,
                 "--dur": `${item.duration}s`,
+                zIndex: isChairman ? 30 : undefined,
               } as React.CSSProperties
             }
           >
-            <div
-              className="lantern-sway relative"
-              style={
-                {
-                  "--sway": `${item.sway}px`,
-                  "--sway-dur": `${item.swayDuration}s`,
-                  "--tilt": `${item.tilt}deg`,
-                } as React.CSSProperties
-              }
-            >
+            {isChairman ? (
+              <ChairmanLantern item={item} design={design} />
+            ) : (
               <div
-                className="lantern-halo"
-                style={{ "--glow": design.glow } as React.CSSProperties}
-              />
-              <Lantern
-                design={design}
-                text={item.doc.text}
-                width={BASE_WIDTH * item.scale}
-                style={{
-                  position: "relative",
-                  zIndex: 1,
-                  filter: `drop-shadow(0 0 ${18 * item.scale}px ${design.glow}aa)`,
-                }}
-              />
-            </div>
+                className="lantern-sway relative"
+                style={
+                  {
+                    "--sway": `${item.sway}px`,
+                    "--sway-dur": `${item.swayDuration}s`,
+                    "--tilt": `${item.tilt}deg`,
+                  } as React.CSSProperties
+                }
+              >
+                <div
+                  className="lantern-halo"
+                  style={{ "--glow": design.glow } as React.CSSProperties}
+                />
+                <Lantern
+                  design={design}
+                  text={item.doc.text}
+                  width={BASE_WIDTH * item.scale}
+                  style={{
+                    position: "relative",
+                    zIndex: 1,
+                    filter: `drop-shadow(0 0 ${18 * item.scale}px ${design.glow}aa)`,
+                  }}
+                />
+              </div>
+            )}
           </div>
         );
       })}

@@ -17,10 +17,16 @@ import { db } from "./firebase";
 
 export const MAX_TEXT_LENGTH = 40;
 
+const CHAIRMAN_DESIGN_ID = "chairman-gold";
+const CHAIRMAN_EVENT_TEXT = "เปิดโลกปฐมวัยไทขอนแก่น ประจำปี 2569";
+const CHAIRMAN_NAME_TEXT = "ดร. สุภชัย จันปุ่ม";
+
 export type LanternDoc = {
   id: string;
   text: string;
   designId: string;
+  variant?: "chairman";
+  subtitle?: string;
 };
 
 const lanternsRef = () => collection(db, "lanterns");
@@ -31,6 +37,8 @@ function toLantern(doc: QueryDocumentSnapshot<DocumentData>): LanternDoc {
     id: doc.id,
     text: typeof data.text === "string" ? data.text : "",
     designId: typeof data.designId === "string" ? data.designId : "classic-red",
+    variant: data.variant === "chairman" ? "chairman" : undefined,
+    subtitle: typeof data.subtitle === "string" ? data.subtitle : undefined,
   };
 }
 
@@ -38,6 +46,17 @@ export async function submitLantern(text: string, designId: string): Promise<voi
   await addDoc(lanternsRef(), {
     text: text.trim().slice(0, MAX_TEXT_LENGTH),
     designId,
+    createdAt: serverTimestamp(),
+  });
+}
+
+/** โคมพิเศษของประธาน — เนื้อหาคงที่ ใช้จากหน้า /admin เท่านั้น */
+export async function submitChairmanLantern(): Promise<void> {
+  await addDoc(lanternsRef(), {
+    text: CHAIRMAN_EVENT_TEXT,
+    subtitle: CHAIRMAN_NAME_TEXT,
+    designId: CHAIRMAN_DESIGN_ID,
+    variant: "chairman",
     createdAt: serverTimestamp(),
   });
 }

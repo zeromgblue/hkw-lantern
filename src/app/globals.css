@@ -171,12 +171,58 @@ body {
   }
 }
 
+/* ---------- โคมประธาน ---------- */
+
+.chairman-halo {
+  width: 230%;
+  opacity: 0.55;
+  animation: halo-pulse 2.4s ease-in-out infinite alternate;
+}
+
+.firework-burst {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.firework-particle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  background: var(--pcolor, #ffd84d);
+  box-shadow: 0 0 6px 2px var(--pcolor, #ffd84d);
+  opacity: 0;
+  animation: firework-fly var(--dur, 1s) ease-out forwards;
+  animation-delay: var(--delay, 0s);
+}
+
+@keyframes firework-fly {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(0, 0) scale(1);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(var(--dx, 60px), calc(var(--dy, 0px) + 36px)) scale(0.3);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .nebula,
   .shooting-star,
   .lantern-sway,
   .lantern-halo,
-  .lantern-flame {
+  .lantern-flame,
+  .chairman-halo,
+  .firework-particle {
     animation: none;
   }
 }

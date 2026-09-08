@@ -311,12 +311,18 @@ export function Lantern({
   design,
   text,
   width = 150,
+  wrapMaxPerLine = 11,
+  wrapMaxLines = 3,
   className,
   style,
 }: {
   design: LanternDesign;
   text?: string;
   width?: number;
+  /** จำนวนตัวอักษรสูงสุดต่อบรรทัด ปรับให้มากขึ้นได้สำหรับโคมขนาดใหญ่พิเศษ */
+  wrapMaxPerLine?: number;
+  /** จำนวนบรรทัดสูงสุด ปรับให้มากขึ้นได้สำหรับโคมขนาดใหญ่พิเศษ */
+  wrapMaxLines?: number;
   className?: string;
   style?: React.CSSProperties;
 }) {
@@ -325,7 +331,7 @@ export function Lantern({
   const shape = SHAPES[design.shape];
   const [lit, mid, edge] = design.body;
 
-  const lines = text ? wrapText(text) : [];
+  const lines = text ? wrapText(text, wrapMaxPerLine, wrapMaxLines) : [];
   const fontSize = fontSizeFor(lines);
   const firstLineY = shape.textY - ((lines.length - 1) * fontSize * 1.28) / 2;
   const bannerWidth = Math.min(96, longestLine(lines) * fontSize * 0.62 + 12);
