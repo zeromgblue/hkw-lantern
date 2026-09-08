@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Lantern } from "./Lantern";
 import { getDesign, LANTERN_DESIGNS, type LanternDesign } from "@/lib/lanternDesigns";
 import { fetchRecentLanterns, listenForNewLanterns, type LanternDoc } from "@/lib/lanterns";
@@ -32,8 +32,19 @@ const SPAWN_INTERVAL_MS = 400;
 const BASE_WIDTH = 170;
 const LANES = 11;
 const CHAIRMAN_SCALE = 2.5;
-const CHAIRMAN_DURATION = 48;
-const CHAIRMAN_TEXT_SWAP_MS = 6000;
+const CHAIRMAN_DURATION = 52;
+const CHAIRMAN_OPEN_DELAY_MS = 2200;
+const CHAIRMAN_TYPE_START_MS = 2900;
+const CHAIRMAN_TYPE_INTERVAL_MS = 55;
+const CHAIRMAN_NAME_DELAY_MS = 500;
+
+function splitGraphemes(text: string): string[] {
+  if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
+    const seg = new Intl.Segmenter("th", { granularity: "grapheme" });
+    return Array.from(seg.segment(text), (s) => s.segment);
+  }
+  return Array.from(text);
+}
 
 export type LanternFieldHandle = {
   /** กวาดโคมที่ลอยอยู่บนจอออกทั้งหมด (ไม่แตะข้อมูลใน Firestore) */
@@ -91,17 +102,20 @@ function FireworkBurst({ particles }: { particles: FireworkParticle[] }) {
   );
 }
 
+type ChairmanPhase = "rising" | "opening" | "typing" | "revealName";
+
 function ChairmanLantern({ item, design }: { item: Flying; design: LanternDesign }) {
-  const [showName, setShowName] = useState(false);
-  const [fading, setFading] = useState(false);
+  const [phase, setPhase] = useState<ChairmanPhase>("rising");
+  const [typedCount, setTypedCount] = useState(0);
   const [burst, setBurst] = useState<{ id: number; particles: FireworkParticle[] } | null>(null);
 
+  const eventChars = useMemo(() => splitGraphemes(item.doc.text), [item.doc.text]);
+  const nameText = item.doc.subtitle ?? "";
+
+  // ไล่ลำดับ: ลอยขึ้น -> กางป้ายออกสองข้าง -> เริ่มพิมพ์ข้อความ
   useEffect(() => {
-    const fadeOut = setTimeout(() => setFading(true), CHAIRMAN_TEXT_SWAP_MS - 400);
-    const swap = setTimeout(() => {
-      setShowName(true);
-      setFading(false);
-    }, CHAIRMAN_TEXT_SWAP_MS);
+    const toOpening = setTimeout(() => setPhase("opening"), CHAIRMAN_OPEN_DELAY_MS);
+    const toTyping = setTimeout(() => setPhase("typing"), CHAIRMAN_TYPE_START_MS);
 
     // ยิงพลุครั้งแรกผ่าน timer (ไม่เรียก setState ตรง ๆ ใน effect body) แล้ววนซ้ำทุก 3.4 วิ
     const triggerBurst = () => setBurst({ id: Date.now(), particles: makeFireworkParticles() });
@@ -109,14 +123,34 @@ function ChairmanLantern({ item, design }: { item: Flying; design: LanternDesign
     const burstInterval = setInterval(triggerBurst, 3400);
 
     return () => {
-      clearTimeout(fadeOut);
-      clearTimeout(swap);
+      clearTimeout(toOpening);
+      clearTimeout(toTyping);
       clearTimeout(kickBurst);
       clearInterval(burstInterval);
     };
   }, []);
 
-  const text = showName ? item.doc.subtitle ?? item.doc.text : item.doc.text;
+  // พิมพ์ข้อความทีละตัวอักษรจากซ้ายไปขวาตอนเข้าเฟส typing
+  useEffect(() => {
+    if (phase !== "typing") return;
+    const interval = setInterval(() => {
+      setTypedCount((n) => (n < eventChars.length ? n + 1 : n));
+    }, CHAIRMAN_TYPE_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [phase, eventChars.length]);
+
+  // พิมพ์จบแล้วค่อยเผยชื่อประธานด้านล่าง
+  useEffect(() => {
+    if (phase === "typing" && eventChars.length > 0 && typedCount >= eventChars.length) {
+      const t = setTimeout(() => setPhase("revealName"), CHAIRMAN_NAME_DELAY_MS);
+      return () => clearTimeout(t);
+    }
+  }, [phase, typedCount, eventChars.length]);
+
+  const typedText = eventChars.slice(0, typedCount).join("");
+  const bannerOpen = phase !== "rising";
+  const showCaret = phase === "typing";
+  const showName = phase === "revealName";
 
   return (
     <div
@@ -131,19 +165,28 @@ function ChairmanLantern({ item, design }: { item: Flying; design: LanternDesign
     >
       <div className="lantern-halo chairman-halo" style={{ "--glow": design.glow } as React.CSSProperties} />
       {burst && <FireworkBurst key={burst.id} particles={burst.particles} />}
-      <div style={{ opacity: fading ? 0 : 1, transition: "opacity 0.5s ease" }}>
-        <Lantern
-          design={design}
-          text={text}
-          wrapMaxPerLine={13}
-          wrapMaxLines={4}
-          width={BASE_WIDTH * item.scale}
-          style={{
-            position: "relative",
-            zIndex: 1,
-            filter: `drop-shadow(0 0 ${30 * item.scale}px ${design.glow}cc)`,
-          }}
-        />
+      <Lantern
+        design={design}
+        width={BASE_WIDTH * item.scale}
+        style={{
+          position: "relative",
+          zIndex: 1,
+          filter: `drop-shadow(0 0 ${30 * item.scale}px ${design.glow}cc)`,
+        }}
+      />
+
+      <div className={`chairman-banner${bannerOpen ? " chairman-banner-open" : ""}`}>
+        <span className="chairman-banner-rod" />
+        <span className="chairman-banner-body">
+          <span className="chairman-banner-text">
+            {typedText}
+            {showCaret && <span className="chairman-caret" />}
+          </span>
+          <span className={`chairman-banner-name${showName ? " chairman-banner-name-visible" : ""}`}>
+            {nameText}
+          </span>
+        </span>
+        <span className="chairman-banner-rod" />
       </div>
     </div>
   );

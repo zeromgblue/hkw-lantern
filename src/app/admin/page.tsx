@@ -48,9 +48,6 @@ export default function AdminPage() {
         >
           <Lantern
             design={CHAIRMAN_DESIGN}
-            text={EVENT_TEXT}
-            wrapMaxPerLine={13}
-            wrapMaxLines={4}
             width={190}
             style={{ filter: `drop-shadow(0 0 30px ${CHAIRMAN_DESIGN.glow}cc)` }}
           />
