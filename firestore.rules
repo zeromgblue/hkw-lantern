@@ -30,5 +30,13 @@ service cloud.firestore {
       allow delete: if true;
       allow update: if false;
     }
+
+    // สถานะประตูปล่อยโคม — คุมจากหน้ามอนิเตอร์ (/m) ไม่มีระบบล็อกอินเช่นเดียวกับที่อื่นในเว็บนี้
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if settingId == 'gate'
+        && request.resource.data.keys().hasOnly(['open', 'openedAt'])
+        && request.resource.data.open is bool;
+    }
   }
 }
