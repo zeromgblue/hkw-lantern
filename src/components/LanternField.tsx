@@ -380,11 +380,15 @@ function ChairmanLantern({
           </svg>
 
           <span className="chairman-scroll-text">
-            {eventChars.slice(0, typedCount).map((ch, i) => (
-              <span key={i} className="chairman-letter-char">
-                {ch}
-              </span>
-            ))}
+            {eventChars.slice(0, typedCount).map((ch, i) =>
+              ch === "\n" ? (
+                <br key={i} />
+              ) : (
+                <span key={i} className="chairman-letter-char">
+                  {ch}
+                </span>
+              ),
+            )}
           </span>
           <span className={`chairman-scroll-name${showName ? " chairman-scroll-name-visible" : ""}`}>
             {nameText}
@@ -569,7 +573,7 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
       // โคมประธานตัวอย่าง ให้พรีวิวจดหมายได้โดยไม่ต้องเขียน Firestore จริง
       enqueue({
         id: "demo-chairman",
-        text: "เปิดโลกปฐมวัยไทขอนแก่น ประจำปี 2569",
+        text: "เปิดโลกปฐมวัยไทขอนแก่น\nประจำปี 2569",
         subtitle: "ดร. สุภชัย จันปุ่ม",
         designId: "chairman-gold",
         variant: "chairman",

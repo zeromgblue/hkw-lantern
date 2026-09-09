@@ -18,7 +18,7 @@ import { db } from "./firebase";
 export const MAX_TEXT_LENGTH = 40;
 
 const CHAIRMAN_DESIGN_ID = "chairman-gold";
-const CHAIRMAN_EVENT_TEXT = "เปิดโลกปฐมวัยไทขอนแก่น ประจำปี 2569";
+const CHAIRMAN_EVENT_TEXT = "เปิดโลกปฐมวัยไทขอนแก่น\nประจำปี 2569";
 const CHAIRMAN_NAME_TEXT = "ดร. สุภชัย จันปุ่ม";
 
 export type LanternDoc = {
