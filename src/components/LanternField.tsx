@@ -4,7 +4,12 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import Image from "next/image";
 import { Lantern } from "./Lantern";
 import { getDesign, LANTERN_DESIGNS, type LanternDesign } from "@/lib/lanternDesigns";
-import { fetchRecentLanterns, listenForNewLanterns, type LanternDoc } from "@/lib/lanterns";
+import {
+  fetchRecentLanterns,
+  listenForNewLanterns,
+  subscribeGateOpen,
+  type LanternDoc,
+} from "@/lib/lanterns";
 
 const DEMO_TEXTS = [
   "ขอให้สอบผ่านทุกวิชา",
@@ -461,6 +466,8 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
   const handleChairmanLeave = useCallback(() => setChairman(null), []);
   const [rockets, setRockets] = useState<SkyRocket[]>([]);
   const queue = useRef<LanternDoc[]>([]);
+  const held = useRef<LanternDoc[]>([]);
+  const gateOpenRef = useRef(false);
   const timers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   const seen = useRef<Set<string>>(new Set());
   const serial = useRef(0);
@@ -546,6 +553,11 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
   const enqueue = useCallback((doc: LanternDoc) => {
     if (seen.current.has(doc.id)) return;
     seen.current.add(doc.id);
+    // โคมประธานมาจาก /admin เท่านั้น ไม่ผ่านประตูมอนิเตอร์ — ปล่อยขึ้นจอทันทีเสมอ
+    if (doc.variant !== "chairman" && !gateOpenRef.current) {
+      held.current.push(doc);
+      return;
+    }
     queue.current.push(doc);
   }, []);
 
@@ -570,6 +582,9 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
 
     // ?demo=1 — ซ้อมหน้าจอโดยไม่ต้องต่อ Firebase (เผื่อเน็ตงานล่ม)
     if (new URLSearchParams(window.location.search).has("demo")) {
+      // โหมดซ้อม ไม่ผูกกับประตูมอนิเตอร์จริง ให้ปล่อยทันทีเสมอ
+      gateOpenRef.current = true;
+
       // โคมประธานตัวอย่าง ให้พรีวิวจดหมายได้โดยไม่ต้องเขียน Firestore จริง
       enqueue({
         id: "demo-chairman",
@@ -595,6 +610,17 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
       };
     }
 
+    // ประตูมอนิเตอร์ — โคมของผู้ร่วมงานจะถูกกักไว้ (held) จนกว่าจะกดปล่อยจากหน้า /m
+    // โคมประธานไม่เกี่ยวข้องกับประตูนี้ (ควบคุมแยกจากหน้า /admin)
+    const unsubscribeGate = subscribeGateOpen((open) => {
+      const justOpened = open && !gateOpenRef.current;
+      gateOpenRef.current = open;
+      if (justOpened && held.current.length > 0) {
+        queue.current.push(...held.current);
+        held.current = [];
+      }
+    });
+
     fetchRecentLanterns(10)
       .then((recent) => recent.forEach(enqueue))
       .catch((error) => console.error("โหลดโคมล่าสุดไม่สำเร็จ", error));
@@ -603,6 +629,7 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
 
     return () => {
       clearInterval(drain);
+      unsubscribeGate();
       unsubscribe();
       currentTimers.forEach(clearTimeout);
       currentTimers.clear();

@@ -1,12 +1,14 @@
 import {
   addDoc,
   collection,
+  doc,
   getDocs,
   limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   Timestamp,
   where,
   writeBatch,
@@ -93,4 +95,28 @@ export function listenForNewLanterns(onNew: (lantern: LanternDoc) => void): () =
       if (change.type === "added") onNew(toLantern(change.doc));
     }
   });
+}
+
+/** จำนวนโคมทั้งหมดแบบเรียลไทม์ — ใช้ที่หน้ามอนิเตอร์ */
+export function subscribeLanternCount(onChange: (count: number) => void): () => void {
+  return onSnapshot(lanternsRef(), (snapshot) => onChange(snapshot.size));
+}
+
+const gateRef = () => doc(db, "settings", "gate");
+
+/** ฟังสถานะประตูปล่อยโคม (ปิดโดยดีฟอลต์ถ้ายังไม่เคยตั้งค่า) */
+export function subscribeGateOpen(onChange: (open: boolean) => void): () => void {
+  return onSnapshot(gateRef(), (snap) => {
+    onChange(snap.exists() && snap.data().open === true);
+  });
+}
+
+/** เปิดประตู ปล่อยโคมของผู้ร่วมงานที่ค้างคิวทั้งหมด — กดจากหน้ามอนิเตอร์ (/m) ครั้งเดียวจนจบงาน */
+export async function openGate(): Promise<void> {
+  await setDoc(gateRef(), { open: true, openedAt: serverTimestamp() }, { merge: true });
+}
+
+/** ปิดประตูกลับ — ใช้ตอนซ้อมหรือรีเซ็ตก่อนงานจริงเท่านั้น */
+export async function closeGate(): Promise<void> {
+  await setDoc(gateRef(), { open: false }, { merge: true });
 }
