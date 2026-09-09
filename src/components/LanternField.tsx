@@ -54,11 +54,13 @@ const GOLDEN_ANGLE_DEG = 137.50776;
 const CHAIRMAN_SCALE = 1.4;
 const CHAIRMAN_IMG_WIDTH = 210;
 const CHAIRMAN_IMG_RATIO = 1536 / 1024;
-const CHAIRMAN_OPEN_DELAY_MS = 1200;
-const CHAIRMAN_TYPE_START_MS = 3000;
+const CHAIRMAN_OPEN_DELAY_MS = 2000;
+const CHAIRMAN_TYPE_START_MS = 3800;
 const CHAIRMAN_TYPE_INTERVAL_MS = 55;
 const CHAIRMAN_NAME_DELAY_MS = 500;
 const CHAIRMAN_FIREWORKS_DURATION_MS = 12000;
+const CHAIRMAN_HOLD_MS = 10000;
+const CHAIRMAN_LEAVE_MS = 2200;
 
 function splitGraphemes(text: string): string[] {
   if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
@@ -202,9 +204,17 @@ function SkyRocketView({ rocket, onDone }: { rocket: SkyRocket; onDone: (id: num
   );
 }
 
-type ChairmanPhase = "rising" | "opening" | "typing" | "revealName";
+type ChairmanPhase = "rising" | "opening" | "typing" | "revealName" | "leaving";
 
-function ChairmanLantern({ item, design }: { item: ChairmanItem; design: LanternDesign }) {
+function ChairmanLantern({
+  item,
+  design,
+  onLeave,
+}: {
+  item: ChairmanItem;
+  design: LanternDesign;
+  onLeave: () => void;
+}) {
   const [phase, setPhase] = useState<ChairmanPhase>("rising");
   const [typedCount, setTypedCount] = useState(0);
   const [burst, setBurst] = useState<{ id: number; particles: FireworkParticle[] } | null>(null);
@@ -255,20 +265,36 @@ function ChairmanLantern({ item, design }: { item: ChairmanItem; design: Lantern
     }
   }, [phase, typedCount, eventChars.length]);
 
+  // เผยชื่อเสร็จแล้ว ลอยค้างไว้ 10 วิ ก่อนค่อย ๆ ลอยขึ้นหายไป
+  useEffect(() => {
+    if (phase !== "revealName") return;
+    const toLeaving = setTimeout(() => setPhase("leaving"), CHAIRMAN_HOLD_MS);
+    return () => clearTimeout(toLeaving);
+  }, [phase]);
+
+  // รอแอนิเมชันลอยหายจบแล้วค่อยเอาโคมประธานออกจากจอจริง ๆ
+  useEffect(() => {
+    if (phase !== "leaving") return;
+    const toDone = setTimeout(onLeave, CHAIRMAN_LEAVE_MS);
+    return () => clearTimeout(toDone);
+  }, [phase, onLeave]);
+
   const scrollOpen = phase !== "rising";
-  const showName = phase === "revealName";
+  const showName = phase === "revealName" || phase === "leaving";
+  const isLeaving = phase === "leaving";
 
   return (
-    <div
-      className="lantern-sway relative chairman-stack"
-      style={
-        {
-          "--sway": `${item.sway}px`,
-          "--sway-dur": `${item.swayDuration}s`,
-          "--tilt": `${item.tilt}deg`,
-        } as React.CSSProperties
-      }
-    >
+    <div className={`chairman-float-out${isLeaving ? " chairman-float-out-leaving" : ""}`}>
+      <div
+        className="lantern-sway relative chairman-stack"
+        style={
+          {
+            "--sway": `${item.sway}px`,
+            "--sway-dur": `${item.swayDuration}s`,
+            "--tilt": `${item.tilt}deg`,
+          } as React.CSSProperties
+        }
+      >
       <div className="lantern-halo chairman-halo" style={{ "--glow": design.glow } as React.CSSProperties} />
       <div className="chairman-halo-ring" />
       {burst && <FireworkBurst key={burst.id} particles={burst.particles} />}
@@ -313,6 +339,15 @@ function ChairmanLantern({ item, design }: { item: ChairmanItem; design: Lantern
             <ellipse cx="120" cy="150" rx="150" ry="14" fill="#fff" opacity="0.12" />
             <ellipse cx="300" cy="120" rx="110" ry="10" fill="#fff" opacity="0.1" />
           </svg>
+
+          <span className="chairman-rod chairman-rod-left" aria-hidden="true">
+            <span className="chairman-rod-medallion" />
+            <span className="chairman-rod-tassel" />
+          </span>
+          <span className="chairman-rod chairman-rod-right" aria-hidden="true">
+            <span className="chairman-rod-medallion" />
+            <span className="chairman-rod-tassel" />
+          </span>
 
           <svg className="chairman-corner chairman-corner-tl" viewBox="0 0 40 40" aria-hidden="true">
             <path d="M2 20 Q2 2 20 2" fill="none" stroke="#a3242c" strokeWidth="1.6" opacity="0.55" />
@@ -401,6 +436,7 @@ function ChairmanLantern({ item, design }: { item: ChairmanItem; design: Lantern
           </span>
         </span>
       </div>
+      </div>
     </div>
   );
 }
@@ -409,6 +445,7 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
   function LanternField({ onCount }, ref) {
   const [flying, setFlying] = useState<Flying[]>([]);
   const [chairman, setChairman] = useState<ChairmanItem | null>(null);
+  const handleChairmanLeave = useCallback(() => setChairman(null), []);
   const [rockets, setRockets] = useState<SkyRocket[]>([]);
   const queue = useRef<LanternDoc[]>([]);
   const timers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
@@ -567,7 +604,11 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
 
       {chairman && (
         <div className="chairman-anchor" style={{ zIndex: 30 } as React.CSSProperties}>
-          <ChairmanLantern item={chairman} design={getDesign(chairman.doc.designId)} />
+          <ChairmanLantern
+            item={chairman}
+            design={getDesign(chairman.doc.designId)}
+            onLeave={handleChairmanLeave}
+          />
         </div>
       )}
 
