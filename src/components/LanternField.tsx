@@ -255,7 +255,6 @@ function ChairmanLantern({ item, design }: { item: ChairmanItem; design: Lantern
     }
   }, [phase, typedCount, eventChars.length]);
 
-  const typedText = eventChars.slice(0, typedCount).join("");
   const scrollOpen = phase !== "rising";
   const showCaret = phase === "typing";
   const showName = phase === "revealName";
@@ -294,7 +293,11 @@ function ChairmanLantern({ item, design }: { item: ChairmanItem; design: Lantern
         <span className="chairman-scroll-cap" />
         <span className="chairman-scroll-paper-v">
           <span className="chairman-scroll-text">
-            {typedText}
+            {eventChars.slice(0, typedCount).map((ch, i) => (
+              <span key={i} className="chairman-letter-char">
+                {ch}
+              </span>
+            ))}
             {showCaret && <span className="chairman-caret" />}
           </span>
           <span className={`chairman-scroll-name${showName ? " chairman-scroll-name-visible" : ""}`}>
