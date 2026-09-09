@@ -568,11 +568,18 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
   useImperativeHandle(ref, () => ({
     clear: () => {
       queue.current = [];
+      // สำคัญ: ต้องเคลียร์ held/seen/total ด้วย ไม่งั้นโคมที่ถูกกักรอประตูเปิดอยู่
+      // (submit ไว้ตอนประตูยังปิด) จะโผล่กลับมาใหม่ทันทีที่ประตูเปิด ทั้งที่ถูกลบจาก Firestore ไปแล้ว
+      held.current = [];
+      seen.current.clear();
+      total.current = 0;
+      orbitIndex.current = 0;
       timers.current.forEach(clearTimeout);
       timers.current.clear();
       setFlying([]);
       setRockets([]);
       setChairman(null);
+      onCount?.(0);
     },
   }));
 
