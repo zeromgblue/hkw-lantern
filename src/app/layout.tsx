@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Chonburi, Kanit, Noto_Sans_Thai } from "next/font/google";
+import { Kanit, Noto_Sans_Thai } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
 const notoThai = Noto_Sans_Thai({
@@ -15,8 +16,8 @@ const kanit = Kanit({
 });
 
 // ฟอนต์ไทยลายป้ายดั้งเดิม ตัวหนา ใช้กับข้อความในจดหมายโคมประธาน
-const chonburi = Chonburi({
-  subsets: ["thai", "latin"],
+const kartBudhaSilp = localFont({
+  src: "../fonts/KartBudhaSilpDemo.ttf",
   weight: "400",
   variable: "--font-letter",
 });
@@ -35,7 +36,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="th" className={`${notoThai.variable} ${kanit.variable} ${chonburi.variable}`}>
+    <html lang="th" className={`${notoThai.variable} ${kanit.variable} ${kartBudhaSilp.variable}`}>
       <body className="antialiased">{children}</body>
     </html>
   );
