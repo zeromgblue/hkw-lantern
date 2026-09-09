@@ -91,15 +91,19 @@ body {
   left: 50%;
   top: 46%;
   transform: translate(-50%, -50%);
-  animation: chairman-anchor-in 1.9s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: chairman-anchor-in 2.8s cubic-bezier(0.45, 0, 0.15, 1);
+  will-change: transform, opacity;
 }
 
 @keyframes chairman-anchor-in {
-  from {
+  0% {
     opacity: 0;
     transform: translate(-50%, calc(-50% + 48vh)) scale(0.82);
   }
-  to {
+  30% {
+    opacity: 1;
+  }
+  100% {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
   }
@@ -108,10 +112,11 @@ body {
 .chairman-float-out {
   transform: translateY(0);
   opacity: 1;
+  will-change: transform, opacity;
 }
 
 .chairman-float-out-leaving {
-  animation: chairman-float-away 2.2s cubic-bezier(0.4, 0, 1, 1) forwards;
+  animation: chairman-float-away 3.2s cubic-bezier(0.45, 0, 0.15, 1) forwards;
 }
 
 @keyframes chairman-float-away {
@@ -119,8 +124,8 @@ body {
     transform: translateY(0);
     opacity: 1;
   }
-  65% {
-    opacity: 0.55;
+  70% {
+    opacity: 0.4;
   }
   100% {
     transform: translateY(-62vh);

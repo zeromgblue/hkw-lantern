@@ -54,13 +54,13 @@ const GOLDEN_ANGLE_DEG = 137.50776;
 const CHAIRMAN_SCALE = 1.4;
 const CHAIRMAN_IMG_WIDTH = 210;
 const CHAIRMAN_IMG_RATIO = 1536 / 1024;
-const CHAIRMAN_OPEN_DELAY_MS = 2000;
-const CHAIRMAN_TYPE_START_MS = 3800;
+const CHAIRMAN_OPEN_DELAY_MS = 2600;
+const CHAIRMAN_TYPE_START_MS = 4400;
 const CHAIRMAN_TYPE_INTERVAL_MS = 55;
 const CHAIRMAN_NAME_DELAY_MS = 500;
 const CHAIRMAN_FIREWORKS_DURATION_MS = 12000;
 const CHAIRMAN_HOLD_MS = 10000;
-const CHAIRMAN_LEAVE_MS = 2200;
+const CHAIRMAN_LEAVE_MS = 3200;
 
 function splitGraphemes(text: string): string[] {
   if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
