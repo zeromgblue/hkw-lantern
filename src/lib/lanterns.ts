@@ -83,32 +83,62 @@ export async function clearAllLanterns(): Promise<void> {
 }
 
 /** ฟังเฉพาะโคมที่ถูกส่งเข้ามาหลังจากเปิดหน้าจอนี้ */
-export function listenForNewLanterns(onNew: (lantern: LanternDoc) => void): () => void {
+export function listenForNewLanterns(
+  onNew: (lantern: LanternDoc) => void,
+  onError?: (error: Error) => void,
+): () => void {
   const q = query(
     lanternsRef(),
     where("createdAt", ">", Timestamp.now()),
     orderBy("createdAt", "asc"),
   );
 
-  return onSnapshot(q, (snapshot) => {
-    for (const change of snapshot.docChanges()) {
-      if (change.type === "added") onNew(toLantern(change.doc));
-    }
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      for (const change of snapshot.docChanges()) {
+        if (change.type === "added") onNew(toLantern(change.doc));
+      }
+    },
+    (error) => {
+      console.error("listenForNewLanterns หลุดการเชื่อมต่อ", error);
+      onError?.(error);
+    },
+  );
 }
 
 /** จำนวนโคมทั้งหมดแบบเรียลไทม์ — ใช้ที่หน้ามอนิเตอร์ */
-export function subscribeLanternCount(onChange: (count: number) => void): () => void {
-  return onSnapshot(lanternsRef(), (snapshot) => onChange(snapshot.size));
+export function subscribeLanternCount(
+  onChange: (count: number) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  return onSnapshot(
+    lanternsRef(),
+    (snapshot) => onChange(snapshot.size),
+    (error) => {
+      console.error("subscribeLanternCount หลุดการเชื่อมต่อ", error);
+      onError?.(error);
+    },
+  );
 }
 
 const gateRef = () => doc(db, "settings", "gate");
 
 /** ฟังสถานะประตูปล่อยโคม (ปิดโดยดีฟอลต์ถ้ายังไม่เคยตั้งค่า) */
-export function subscribeGateOpen(onChange: (open: boolean) => void): () => void {
-  return onSnapshot(gateRef(), (snap) => {
-    onChange(snap.exists() && snap.data().open === true);
-  });
+export function subscribeGateOpen(
+  onChange: (open: boolean) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  return onSnapshot(
+    gateRef(),
+    (snap) => {
+      onChange(snap.exists() && snap.data().open === true);
+    },
+    (error) => {
+      console.error("subscribeGateOpen หลุดการเชื่อมต่อ", error);
+      onError?.(error);
+    },
+  );
 }
 
 /** เปิดประตู ปล่อยโคมของผู้ร่วมงานที่ค้างคิวทั้งหมด — กดจากหน้ามอนิเตอร์ (/m) ครั้งเดียวจนจบงาน */

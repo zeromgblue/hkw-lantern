@@ -612,20 +612,35 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
 
     // ประตูมอนิเตอร์ — โคมของผู้ร่วมงานจะถูกกักไว้ (held) จนกว่าจะกดปล่อยจากหน้า /m
     // โคมประธานไม่เกี่ยวข้องกับประตูนี้ (ควบคุมแยกจากหน้า /admin)
-    const unsubscribeGate = subscribeGateOpen((open) => {
-      const justOpened = open && !gateOpenRef.current;
-      gateOpenRef.current = open;
-      if (justOpened && held.current.length > 0) {
+    const releaseHeld = () => {
+      if (held.current.length > 0) {
         queue.current.push(...held.current);
         held.current = [];
       }
-    });
+    };
+
+    const unsubscribeGate = subscribeGateOpen(
+      (open) => {
+        const justOpened = open && !gateOpenRef.current;
+        gateOpenRef.current = open;
+        if (justOpened) releaseHeld();
+      },
+      (error) => {
+        // เชื่อมต่อสถานะประตูไม่ได้ (เช่น deploy กฎยังไม่เสร็จ) — เปิดผ่านทันทีแทนการกักโคมไว้เงียบ ๆ
+        // ป้องกันไม่ให้จอใหญ่หยุดแสดงโคมของผู้ร่วมงานทั้งงานเพราะปัญหาการเชื่อมต่อจุดเดียว
+        console.error("เชื่อมต่อสถานะประตูไม่สำเร็จ ปล่อยโคมทั้งหมดผ่านไปก่อนเพื่อกันจอใหญ่ค้าง", error);
+        gateOpenRef.current = true;
+        releaseHeld();
+      },
+    );
 
     fetchRecentLanterns(10)
       .then((recent) => recent.forEach(enqueue))
       .catch((error) => console.error("โหลดโคมล่าสุดไม่สำเร็จ", error));
 
-    const unsubscribe = listenForNewLanterns(enqueue);
+    const unsubscribe = listenForNewLanterns(enqueue, (error) =>
+      console.error("เชื่อมต่อสตรีมโคมใหม่ไม่สำเร็จ", error),
+    );
 
     return () => {
       clearInterval(drain);

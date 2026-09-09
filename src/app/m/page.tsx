@@ -6,25 +6,42 @@ import { closeGate, openGate, subscribeGateOpen, subscribeLanternCount } from "@
 
 type ReleaseStatus = "idle" | "sending" | "error";
 
+const SLOW_CONNECTION_MS = 5000;
+
 export default function MonitorPage() {
   const [count, setCount] = useState<number | null>(null);
   const [gateOpen, setGateOpen] = useState<boolean | null>(null);
   const [status, setStatus] = useState<ReleaseStatus>("idle");
+  const [connError, setConnError] = useState<string | null>(null);
+  const [slowConn, setSlowConn] = useState(false);
+  const [retryTick, setRetryTick] = useState(0);
 
   useEffect(() => {
-    const unsubscribeCount = subscribeLanternCount(setCount);
-    const unsubscribeGate = subscribeGateOpen(setGateOpen);
+    const handleError = () => {
+      setConnError("เชื่อมต่อ Firebase ไม่สำเร็จ (อาจยังไม่ได้ deploy กฎความปลอดภัยใหม่ หรือเน็ตหลุด)");
+    };
+
+    const unsubscribeCount = subscribeLanternCount(setCount, handleError);
+    const unsubscribeGate = subscribeGateOpen(setGateOpen, handleError);
+
+    const slowTimer = setTimeout(() => setSlowConn(true), SLOW_CONNECTION_MS);
+
     return () => {
       unsubscribeCount();
       unsubscribeGate();
+      clearTimeout(slowTimer);
     };
-  }, []);
+  }, [retryTick]);
 
   const handleRelease = async () => {
     if (status === "sending") return;
     setStatus("sending");
     try {
       await openGate();
+      // อัปเดตหน้าจอทันทีจากผลลัพธ์การเขียนจริง ไม่ต้องรอ listener สะท้อนกลับมา
+      // (กันไว้เผื่อฝั่งอ่านหลุดการเชื่อมต่อ แต่การเขียนสำเร็จแล้ว)
+      setGateOpen(true);
+      setConnError(null);
       setStatus("idle");
     } catch (error) {
       console.error("เปิดประตูปล่อยโคมไม่สำเร็จ", error);
@@ -36,9 +53,16 @@ export default function MonitorPage() {
     if (!window.confirm("ปิดประตูกลับ? โคมใหม่ที่ผู้ร่วมงานส่งเข้ามาจะถูกกักไว้อีกครั้งจนกว่าจะกดปล่อย")) return;
     try {
       await closeGate();
+      setGateOpen(false);
     } catch (error) {
       console.error("ปิดประตูไม่สำเร็จ", error);
     }
+  };
+
+  const handleRetry = () => {
+    setConnError(null);
+    setSlowConn(false);
+    setRetryTick((n) => n + 1);
   };
 
   return (
@@ -69,13 +93,43 @@ export default function MonitorPage() {
         <div className="mt-4 flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2">
           <span
             className={`h-2.5 w-2.5 rounded-full ${
-              gateOpen ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" : "bg-amber-300 shadow-[0_0_8px_rgba(252,211,77,0.8)]"
+              gateOpen
+                ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                : "bg-amber-300 shadow-[0_0_8px_rgba(252,211,77,0.8)]"
             }`}
           />
           <span className="text-sm font-medium text-indigo-100/90">
-            {gateOpen === null ? "กำลังเชื่อมต่อ…" : gateOpen ? "ประตูเปิดแล้ว — โคมทยอยลอยขึ้นจอใหญ่" : "ประตูปิดอยู่ — โคมกำลังรอ"}
+            {gateOpen === null
+              ? "กำลังเชื่อมต่อ…"
+              : gateOpen
+                ? "ประตูเปิดแล้ว — โคมทยอยลอยขึ้นจอใหญ่"
+                : "ประตูปิดอยู่ — โคมกำลังรอ"}
           </span>
         </div>
+
+        {connError && (
+          <div className="mt-4 w-full rounded-xl bg-red-500/15 px-4 py-3 text-left text-sm text-red-200">
+            <p>{connError}</p>
+            <button
+              onClick={handleRetry}
+              className="mt-2 rounded-full border border-red-200/30 bg-red-200/10 px-4 py-1.5 text-xs font-semibold text-red-100 active:scale-95"
+            >
+              ลองเชื่อมต่อใหม่
+            </button>
+          </div>
+        )}
+
+        {!connError && slowConn && gateOpen === null && (
+          <div className="mt-4 w-full rounded-xl bg-amber-500/10 px-4 py-3 text-left text-xs text-amber-100">
+            <p>เชื่อมต่อช้ากว่าปกติ — ตรวจสอบอินเทอร์เน็ต แต่ยังกดปุ่มปล่อยโคมด้านล่างได้ตามปกติ</p>
+            <button
+              onClick={handleRetry}
+              className="mt-2 rounded-full border border-amber-200/30 bg-amber-200/10 px-4 py-1.5 text-xs font-semibold text-amber-100 active:scale-95"
+            >
+              ลองเชื่อมต่อใหม่
+            </button>
+          </div>
+        )}
 
         {status === "error" && (
           <p className="mt-4 rounded-xl bg-red-500/15 px-4 py-3 text-sm text-red-200">
@@ -91,7 +145,7 @@ export default function MonitorPage() {
         ) : (
           <button
             onClick={handleRelease}
-            disabled={status === "sending" || gateOpen === null}
+            disabled={status === "sending"}
             className="mt-8 w-full rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 py-4 text-lg font-bold text-amber-950 shadow-[0_0_40px_rgba(255,216,77,0.5)] transition active:scale-95 disabled:opacity-40 disabled:shadow-none"
           >
             {status === "sending" ? "กำลังเปิดประตู..." : "ปล่อยโคมทั้งหมด"}
