@@ -4,6 +4,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import Image from "next/image";
 import { Lantern } from "./Lantern";
 import { getDesign, LANTERN_DESIGNS, type LanternDesign } from "@/lib/lanternDesigns";
+import { playFireworkBoom } from "@/lib/fireworkSound";
 import {
   fetchRecentLanterns,
   listenForNewLanterns,
@@ -159,6 +160,7 @@ function SkyRocketView({ rocket, onDone }: { rocket: SkyRocket; onDone: (id: num
     const toBurst = setTimeout(() => {
       setPhase("burst");
       setParticles(makeFireworkParticles(34, 1.3));
+      playFireworkBoom(0.85);
     }, rocket.flightMs);
     const toDone = setTimeout(() => onDone(rocket.id), rocket.flightMs + 1600);
     return () => {
@@ -236,12 +238,14 @@ function ChairmanLantern({
       setFlashId(Date.now());
       // พลุชุดใหญ่ตรงจังหวะที่โคมแปลงร่างเป็นจดหมาย
       setBurst({ id: Date.now() + 1, particles: makeFireworkParticles(42, 1.5) });
+      playFireworkBoom(1.3);
     }, CHAIRMAN_OPEN_DELAY_MS);
     const toTyping = setTimeout(() => setPhase("typing"), CHAIRMAN_TYPE_START_MS);
 
     // พลุระลอกต่อ ๆ ไปทุก 3.4 วิ แต่หยุดหลังจากช่วงเปิดตัว ไม่ยิงตลอดไป
     const burstInterval = setInterval(() => {
       setBurst({ id: Date.now(), particles: makeFireworkParticles() });
+      playFireworkBoom(1);
     }, 3400);
     const stopBursts = setTimeout(() => clearInterval(burstInterval), CHAIRMAN_FIREWORKS_DURATION_MS);
 
