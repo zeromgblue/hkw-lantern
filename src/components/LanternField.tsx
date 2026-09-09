@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Lantern } from "./Lantern";
 import { getDesign, LANTERN_DESIGNS, type LanternDesign } from "@/lib/lanternDesigns";
@@ -17,9 +17,8 @@ const DEMO_TEXTS = [
   "สุขภาพแข็งแรง",
 ];
 
-// โคมทั่วไปลอยนิ่งกระจายรอบโคมประธานแทนการลอยขึ้นแล้วหายไป — จัดตำแหน่งแบบ phyllotaxis
-// (มุมทองคำ + รัศมีตาม sqrt(ลำดับ)) แบบเดียวกับเมล็ดทานตะวัน ทำให้แต่ละดวงห่างเพื่อนบ้านสม่ำเสมอ
-// ไม่กระจุกซ้อนทับกันแม้สะสมเพิ่มขึ้นเรื่อย ๆ โดยไม่ต้องรื้อตำแหน่งโคมเก่า
+// โคมทั่วไปโคจรรอบโคมประธานแทนการลอยขึ้นแล้วหายไป — จัดเข้าวงแหวนแบบ golden-angle
+// เพื่อกระจายพื้นที่สม่ำเสมอไม่ให้กระจุกทับกันเมื่อโคมสะสมมากขึ้นเรื่อย ๆ
 type Flying = {
   key: string;
   doc: LanternDoc;
@@ -28,7 +27,8 @@ type Flying = {
   sway: number;
   tilt: number;
   radiusVmin: number;
-  angleDeg: number;
+  periodSec: number;
+  phaseSec: number;
   twinkleDur: number;
   twinkleDelay: number;
 };
@@ -45,18 +45,28 @@ type ChairmanItem = {
 const MAX_ACTIVE = 150;
 const SPAWN_INTERVAL_MS = 400;
 const BASE_WIDTH = 170;
-const SCATTER_BASE_RADIUS_VMIN = 16;
-const SCATTER_RADIUS_STEP_VMIN = 2.6;
+const ORBIT_RING_COUNT = 6;
+const ORBIT_BASE_RADIUS_VMIN = 14;
+const ORBIT_RADIUS_STEP_VMIN = 6;
+const ORBIT_BASE_PERIOD_SEC = 70;
+const ORBIT_PERIOD_STEP_SEC = 16;
 const GOLDEN_ANGLE_DEG = 137.50776;
 const CHAIRMAN_SCALE = 1.4;
 const CHAIRMAN_IMG_WIDTH = 210;
 const CHAIRMAN_IMG_RATIO = 1536 / 1024;
 const CHAIRMAN_OPEN_DELAY_MS = 1200;
-const CHAIRMAN_VISIBLE_MS = 5000;
-const CHAIRMAN_FADE_MS = 2200;
+const CHAIRMAN_TYPE_START_MS = 3000;
+const CHAIRMAN_TYPE_INTERVAL_MS = 55;
+const CHAIRMAN_NAME_DELAY_MS = 500;
 const CHAIRMAN_FIREWORKS_DURATION_MS = 12000;
-const CHAIRMAN_BANNER_WIDTH = 1705;
-const CHAIRMAN_BANNER_HEIGHT = 960;
+
+function splitGraphemes(text: string): string[] {
+  if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
+    const seg = new Intl.Segmenter("th", { granularity: "grapheme" });
+    return Array.from(seg.segment(text), (s) => s.segment);
+  }
+  return Array.from(text);
+}
 
 export type LanternFieldHandle = {
   /** กวาดโคมที่ลอยอยู่บนจอออกทั้งหมด (ไม่แตะข้อมูลใน Firestore) */
@@ -192,46 +202,27 @@ function SkyRocketView({ rocket, onDone }: { rocket: SkyRocket; onDone: (id: num
   );
 }
 
-type ChairmanPhase = "rising" | "opening" | "fading" | "settled";
+type ChairmanPhase = "rising" | "opening" | "typing" | "revealName";
 
-// พารามิเตอร์ดาวโคจรรอบวงแหวนอวกาศ — คงที่ ไม่สุ่มใหม่ทุก render กันวงแหวนกระตุก
-// รัศมีเท่ากับรัศมีวงแหวน (.chairman-orbit-ring กว้าง 40vmin) ดาวจึงเรียงตัวโคจรไปตามเส้นวงแหวนพอดี
-const CHAIRMAN_ORBIT_RADIUS_VMIN = 20;
-const CHAIRMAN_ORBIT_STARS = [
-  { period: 22, phase: 0, twinkleDur: 2.6, twinkleDelay: 0 },
-  { period: 22, phase: 5.5, twinkleDur: 3.1, twinkleDelay: 0.6 },
-  { period: 22, phase: 11, twinkleDur: 2.8, twinkleDelay: 1.3 },
-  { period: 22, phase: 16.5, twinkleDur: 3.4, twinkleDelay: 2 },
-];
-
-function ChairmanLantern({
-  item,
-  design,
-  onSettled,
-}: {
-  item: ChairmanItem;
-  design: LanternDesign;
-  onSettled?: () => void;
-}) {
+function ChairmanLantern({ item, design }: { item: ChairmanItem; design: LanternDesign }) {
   const [phase, setPhase] = useState<ChairmanPhase>("rising");
+  const [typedCount, setTypedCount] = useState(0);
   const [burst, setBurst] = useState<{ id: number; particles: FireworkParticle[] } | null>(null);
   const [flashId, setFlashId] = useState<number | null>(null);
 
-  // ไล่ลำดับ: ปรากฏตัว -> โคมแตกเป็นแสงวาบแล้วรูปภาพค่อย ๆ ผุดขึ้นกลางโคม -> ค้างไว้สักพักแล้วค่อย ๆ จางหาย
-  // -> เมื่อรูปจางหายหมด โคมเลื่อนไปกึ่งกลางจอพร้อมวงแหวนอวกาศโคจรรอบตัว
-  // ตัวโคมเองอยู่กลางจอถาวร (ไม่ลอยหายไป) พลุจะยิงต่อเนื่องแค่ช่วงแรกแล้วหยุด
+  const eventChars = useMemo(() => splitGraphemes(item.doc.text), [item.doc.text]);
+  const nameText = item.doc.subtitle ?? "";
+
+  // ไล่ลำดับ: ปรากฏตัว -> โคมแตกเป็นแสงวาบแล้วกลายเป็นจดหมายกางออกสองข้าง -> พิมพ์ข้อความ
+  // จากนั้นอยู่กลางจอถาวร (ไม่ลอยหายไปอีกต่อไป) พลุจะยิงต่อเนื่องแค่ช่วงแรกแล้วหยุด
   useEffect(() => {
     const toOpening = setTimeout(() => {
       setPhase("opening");
       setFlashId(Date.now());
-      // พลุชุดใหญ่ตรงจังหวะที่โคมแปลงร่างปล่อยรูปภาพ
+      // พลุชุดใหญ่ตรงจังหวะที่โคมแปลงร่างเป็นจดหมาย
       setBurst({ id: Date.now() + 1, particles: makeFireworkParticles(42, 1.5) });
     }, CHAIRMAN_OPEN_DELAY_MS);
-    const toFading = setTimeout(() => setPhase("fading"), CHAIRMAN_OPEN_DELAY_MS + CHAIRMAN_VISIBLE_MS);
-    const toSettled = setTimeout(() => {
-      setPhase("settled");
-      onSettled?.();
-    }, CHAIRMAN_OPEN_DELAY_MS + CHAIRMAN_VISIBLE_MS + CHAIRMAN_FADE_MS);
+    const toTyping = setTimeout(() => setPhase("typing"), CHAIRMAN_TYPE_START_MS);
 
     // พลุระลอกต่อ ๆ ไปทุก 3.4 วิ แต่หยุดหลังจากช่วงเปิดตัว ไม่ยิงตลอดไป
     const burstInterval = setInterval(() => {
@@ -241,16 +232,33 @@ function ChairmanLantern({
 
     return () => {
       clearTimeout(toOpening);
-      clearTimeout(toFading);
-      clearTimeout(toSettled);
+      clearTimeout(toTyping);
       clearInterval(burstInterval);
       clearTimeout(stopBursts);
     };
-  }, [onSettled]);
+  }, []);
 
-  const portraitVisible = phase !== "rising";
-  const fading = phase === "fading" || phase === "settled";
-  const orbitVisible = phase === "settled";
+  // พิมพ์ข้อความทีละตัวอักษรจากซ้ายไปขวาตอนเข้าเฟส typing
+  useEffect(() => {
+    if (phase !== "typing") return;
+    const interval = setInterval(() => {
+      setTypedCount((n) => (n < eventChars.length ? n + 1 : n));
+    }, CHAIRMAN_TYPE_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [phase, eventChars.length]);
+
+  // พิมพ์จบแล้วค่อยเผยชื่อประธานด้านล่าง
+  useEffect(() => {
+    if (phase === "typing" && eventChars.length > 0 && typedCount >= eventChars.length) {
+      const t = setTimeout(() => setPhase("revealName"), CHAIRMAN_NAME_DELAY_MS);
+      return () => clearTimeout(t);
+    }
+  }, [phase, typedCount, eventChars.length]);
+
+  const typedText = eventChars.slice(0, typedCount).join("");
+  const scrollOpen = phase !== "rising";
+  const showCaret = phase === "typing";
+  const showName = phase === "revealName";
 
   return (
     <div
@@ -265,39 +273,6 @@ function ChairmanLantern({
     >
       <div className="lantern-halo chairman-halo" style={{ "--glow": design.glow } as React.CSSProperties} />
       <div className="chairman-halo-ring" />
-
-      {/* วงแหวนอวกาศโคจรรอบโคมประธาน — ปรากฏหลังรูปภาพจางหายและโคมตั้งหลักกลางจอ */}
-      <div className={`chairman-orbit${orbitVisible ? " chairman-orbit-visible" : ""}`}>
-        <div className="chairman-orbit-ring" />
-        {CHAIRMAN_ORBIT_STARS.map((star, i) => (
-          <div
-            key={i}
-            className="orbit-spin"
-            style={{ "--period": `${star.period}s`, "--phase": `${star.phase}s` } as React.CSSProperties}
-          >
-            <div
-              className="orbit-radius"
-              style={{ "--radius": `${CHAIRMAN_ORBIT_RADIUS_VMIN}vmin` } as React.CSSProperties}
-            >
-              <div
-                className="orbit-counter-spin"
-                style={{ "--period": `${star.period}s`, "--phase": `${star.phase}s` } as React.CSSProperties}
-              >
-                <span
-                  className="chairman-orbit-star orbit-twinkle"
-                  style={
-                    {
-                      "--twinkle-dur": `${star.twinkleDur}s`,
-                      "--twinkle-delay": `${star.twinkleDelay}s`,
-                    } as React.CSSProperties
-                  }
-                />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
       {burst && <FireworkBurst key={burst.id} particles={burst.particles} />}
       {flashId !== null && <span key={flashId} className="chairman-flash" />}
 
@@ -314,23 +289,20 @@ function ChairmanLantern({
         }}
       />
 
-      {/* รูปภาพค่อย ๆ ผุดขึ้นกลางโคม ค้างอยู่ราว 10 วิ แล้วค่อย ๆ จางหาย (ไม่ใช่ปรากฏ/หายแบบทันที) */}
-      <div
-        className={`chairman-portrait${portraitVisible ? " chairman-portrait-visible" : ""}${fading ? " chairman-portrait-fade" : ""}`}
-      >
-        {/* หักล้างการโยกของโคม (lantern-sway บน chairman-stack) ให้รูปนิ่ง ไม่โยกตาม */}
-        <div className="chairman-portrait-counter-sway">
-          <span className="chairman-scroll-image-wrap">
-            <Image
-              src="/chairman-banner.jpg"
-              alt=""
-              width={CHAIRMAN_BANNER_WIDTH}
-              height={CHAIRMAN_BANNER_HEIGHT}
-              unoptimized
-              className="chairman-scroll-image"
-            />
+      {/* จดหมายกางออกลงด้านล่าง ห้อยจากกระบอกใต้โคม เหมือนโคมไฟจีน */}
+      <div className={`chairman-scroll-v${scrollOpen ? " chairman-scroll-v-open" : ""}`}>
+        <span className="chairman-scroll-cap" />
+        <span className="chairman-scroll-paper-v">
+          <span className="chairman-scroll-text">
+            {typedText}
+            {showCaret && <span className="chairman-caret" />}
           </span>
-        </div>
+          <span className={`chairman-scroll-name${showName ? " chairman-scroll-name-visible" : ""}`}>
+            {nameText}
+          </span>
+          <span className="chairman-blossom" aria-hidden="true" />
+          <span className={`chairman-seal${showName ? " chairman-seal-visible" : ""}`} />
+        </span>
       </div>
     </div>
   );
@@ -340,7 +312,6 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
   function LanternField({ onCount }, ref) {
   const [flying, setFlying] = useState<Flying[]>([]);
   const [chairman, setChairman] = useState<ChairmanItem | null>(null);
-  const [chairmanSettled, setChairmanSettled] = useState(false);
   const [rockets, setRockets] = useState<SkyRocket[]>([]);
   const queue = useRef<LanternDoc[]>([]);
   const timers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
@@ -361,15 +332,12 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
     setRockets((prev) => [...prev, left, right]);
   }, []);
 
-  const handleChairmanSettled = useCallback(() => setChairmanSettled(true), []);
-
   const spawn = useCallback(
     (doc: LanternDoc) => {
       const isChairman = doc.variant === "chairman";
 
       if (isChairman) {
         // โคมประธานอยู่กลางจอถาวร ไม่ลอยหายไปอีก
-        setChairmanSettled(false);
         setChairman({
           key: `${doc.id}-${serial.current++}`,
           doc,
@@ -388,14 +356,17 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
           timers.current.add(rocketTimer);
         });
       } else {
-        // จัดตำแหน่งแบบ phyllotaxis (มุมทองคำ + รัศมีตาม sqrt(ลำดับ)) เหมือนเมล็ดทานตะวัน
-        // ทำให้ทุกดวงห่างเพื่อนบ้านสม่ำเสมอไม่เบียดกัน แล้วลอยนิ่งอยู่ตรงนั้น (แค่โยกเบา ๆ ไม่โคจร)
-        // ใช้ index วนรอบตามเพดานจำนวนที่แสดงจริง กันตำแหน่งไหลออกจอเมื่อสะสมนาน ๆ
+        // จัดโคมเข้าวงแหวนรอบโคมประธานแบบ golden-angle กระจายสม่ำเสมอ
+        // ไม่ทับกันแม้จะสะสมเพิ่มขึ้นเรื่อย ๆ โดยไม่ต้องรื้อตำแหน่งโคมเก่า
         const idx = orbitIndex.current++;
-        const posIdx = idx % MAX_ACTIVE;
-        const angleDeg = posIdx * GOLDEN_ANGLE_DEG + (Math.random() - 0.5) * 6;
+        const ring = idx % ORBIT_RING_COUNT;
+        const posInRing = Math.floor(idx / ORBIT_RING_COUNT);
+        const angleDeg = posInRing * GOLDEN_ANGLE_DEG + ring * (360 / ORBIT_RING_COUNT) * 0.5;
         const radiusVmin =
-          SCATTER_BASE_RADIUS_VMIN + SCATTER_RADIUS_STEP_VMIN * Math.sqrt(posIdx) + (Math.random() - 0.5) * 1.6;
+          ORBIT_BASE_RADIUS_VMIN + ring * ORBIT_RADIUS_STEP_VMIN + (Math.random() - 0.5) * 2.5;
+        const periodSec =
+          ORBIT_BASE_PERIOD_SEC + ring * ORBIT_PERIOD_STEP_SEC + (Math.random() - 0.5) * 10;
+        const phaseSec = (angleDeg / 360) * periodSec;
 
         const item: Flying = {
           key: `${doc.id}-${serial.current++}`,
@@ -405,7 +376,8 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
           sway: 12 + Math.random() * 26,
           tilt: 2 + Math.random() * 4,
           radiusVmin,
-          angleDeg,
+          periodSec,
+          phaseSec,
           twinkleDur: 2 + Math.random() * 3,
           twinkleDelay: Math.random() * 3,
         };
@@ -438,7 +410,6 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
       setFlying([]);
       setRockets([]);
       setChairman(null);
-      setChairmanSettled(false);
     },
   }));
 
@@ -489,15 +460,8 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
       ))}
 
       {chairman && (
-        <div
-          className={`chairman-anchor${chairmanSettled ? " chairman-anchor-settled" : ""}`}
-          style={{ zIndex: 30 } as React.CSSProperties}
-        >
-          <ChairmanLantern
-            item={chairman}
-            design={getDesign(chairman.doc.designId)}
-            onSettled={handleChairmanSettled}
-          />
+        <div className="chairman-anchor" style={{ zIndex: 30 } as React.CSSProperties}>
+          <ChairmanLantern item={chairman} design={getDesign(chairman.doc.designId)} />
         </div>
       )}
 
@@ -505,11 +469,24 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
         const design = getDesign(item.doc.designId);
         return (
           <div key={item.key} className="orbit-anchor">
-            <div className="scatter-rotate" style={{ "--angle": `${item.angleDeg}deg` } as React.CSSProperties}>
+            <div
+              className="orbit-spin"
+              style={
+                {
+                  "--period": `${item.periodSec}s`,
+                  "--phase": `${-item.phaseSec}s`,
+                } as React.CSSProperties
+              }
+            >
               <div className="orbit-radius" style={{ "--radius": `${item.radiusVmin}vmin` } as React.CSSProperties}>
                 <div
-                  className="scatter-counter-rotate"
-                  style={{ "--angle": `${item.angleDeg}deg` } as React.CSSProperties}
+                  className="orbit-counter-spin"
+                  style={
+                    {
+                      "--period": `${item.periodSec}s`,
+                      "--phase": `${-item.phaseSec}s`,
+                    } as React.CSSProperties
+                  }
                 >
                   <div
                     className="orbit-twinkle"
