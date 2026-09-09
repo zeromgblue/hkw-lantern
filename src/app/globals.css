@@ -128,7 +128,7 @@ body {
     opacity: 0.4;
   }
   100% {
-    transform: translateY(-62vh);
+    transform: translateY(-140vh);
     opacity: 0;
   }
 }
@@ -291,7 +291,7 @@ body {
   animation: halo-pulse 2.4s ease-in-out infinite alternate;
 }
 
-.chairman-halo-ring {
+.chairman-smoke {
   position: absolute;
   left: 50%;
   top: 41%;
@@ -299,19 +299,42 @@ body {
   width: 155%;
   aspect-ratio: 1;
   translate: -50% -50%;
-  border-radius: 50%;
-  border: 3px dashed rgba(255, 216, 77, 0.4);
-  box-shadow: 0 0 24px rgba(255, 216, 77, 0.35), inset 0 0 24px rgba(255, 216, 77, 0.25);
   pointer-events: none;
-  animation: chairman-ring-spin 14s linear infinite;
 }
 
-@keyframes chairman-ring-spin {
-  from {
-    transform: rotate(0deg);
+.chairman-smoke-wisp {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34%;
+  height: 52%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--glow, #ffd84d) 55%, white) 0%,
+    color-mix(in srgb, var(--glow, #ffd84d) 35%, transparent) 45%,
+    transparent 75%
+  );
+  filter: blur(7px);
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(var(--wisp-angle, 0deg)) translateY(0) scale(0.55);
+  animation: chairman-smoke-drift 8s ease-in-out infinite;
+}
+
+@keyframes chairman-smoke-drift {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--wisp-angle, 0deg)) translateY(0) scale(0.55);
   }
-  to {
-    transform: rotate(360deg);
+  18% {
+    opacity: 0.5;
+  }
+  65% {
+    opacity: 0.28;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(calc(var(--wisp-angle, 0deg) + 30deg)) translateY(-62%) scale(1.25);
   }
 }
 
@@ -778,7 +801,7 @@ body {
   .lantern-halo,
   .lantern-flame,
   .chairman-halo,
-  .chairman-halo-ring,
+  .chairman-smoke-wisp,
   .firework-particle,
   .firework-rocket,
   .chairman-flash,

@@ -279,7 +279,7 @@ function ChairmanLantern({
     return () => clearTimeout(toDone);
   }, [phase, onLeave]);
 
-  const scrollOpen = phase !== "rising";
+  const scrollOpen = phase === "opening" || phase === "typing" || phase === "revealName";
   const showName = phase === "revealName" || phase === "leaving";
   const isLeaving = phase === "leaving";
 
@@ -296,7 +296,20 @@ function ChairmanLantern({
         }
       >
       <div className="lantern-halo chairman-halo" style={{ "--glow": design.glow } as React.CSSProperties} />
-      <div className="chairman-halo-ring" />
+      <div className="chairman-smoke" style={{ "--glow": design.glow } as React.CSSProperties} aria-hidden="true">
+        {[0, 72, 144, 216, 288].map((angle, i) => (
+          <span
+            key={angle}
+            className="chairman-smoke-wisp"
+            style={
+              {
+                "--wisp-angle": `${angle}deg`,
+                animationDelay: `${i * 1.6}s`,
+              } as React.CSSProperties
+            }
+          />
+        ))}
+      </div>
       {burst && <FireworkBurst key={burst.id} particles={burst.particles} />}
       {flashId !== null && <span key={flashId} className="chairman-flash" />}
 
