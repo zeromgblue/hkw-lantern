@@ -54,13 +54,13 @@ const GOLDEN_ANGLE_DEG = 137.50776;
 const CHAIRMAN_SCALE = 1.4;
 const CHAIRMAN_IMG_WIDTH = 210;
 const CHAIRMAN_IMG_RATIO = 1536 / 1024;
-const CHAIRMAN_OPEN_DELAY_MS = 2600;
-const CHAIRMAN_TYPE_START_MS = 4400;
+const CHAIRMAN_OPEN_DELAY_MS = 4200;
+const CHAIRMAN_TYPE_START_MS = 6000;
 const CHAIRMAN_TYPE_INTERVAL_MS = 55;
 const CHAIRMAN_NAME_DELAY_MS = 500;
 const CHAIRMAN_FIREWORKS_DURATION_MS = 12000;
 const CHAIRMAN_HOLD_MS = 10000;
-const CHAIRMAN_LEAVE_MS = 3200;
+const CHAIRMAN_LEAVE_MS = 5000;
 
 function splitGraphemes(text: string): string[] {
   if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
@@ -365,10 +365,6 @@ function ChairmanLantern({
             <path d="M2 20 Q2 2 20 2" fill="none" stroke="#a3242c" strokeWidth="1.6" opacity="0.55" />
             <path d="M8 24 Q8 8 24 8" fill="none" stroke="#c9a24a" strokeWidth="1.2" opacity="0.6" />
           </svg>
-
-          <span className="chairman-scroll-title" aria-hidden="true">
-            จดหมายจากดวงดาว
-          </span>
 
           <span className="chairman-scroll-text">
             {eventChars.slice(0, typedCount).map((ch, i) => (
