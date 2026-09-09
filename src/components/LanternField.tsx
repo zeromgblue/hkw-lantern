@@ -256,7 +256,6 @@ function ChairmanLantern({ item, design }: { item: ChairmanItem; design: Lantern
   }, [phase, typedCount, eventChars.length]);
 
   const scrollOpen = phase !== "rising";
-  const showCaret = phase === "typing";
   const showName = phase === "revealName";
 
   return (
@@ -288,23 +287,118 @@ function ChairmanLantern({ item, design }: { item: ChairmanItem; design: Lantern
         }}
       />
 
-      {/* จดหมายกางออกลงด้านล่าง ห้อยจากกระบอกใต้โคม เหมือนโคมไฟจีน */}
+      {/* จดหมายกางออกลงด้านล่าง ห้อยจากกระบอกใต้โคม เหมือนม้วนสาส์นจีนโบราณ */}
       <div className={`chairman-scroll-v${scrollOpen ? " chairman-scroll-v-open" : ""}`}>
         <span className="chairman-scroll-cap" />
         <span className="chairman-scroll-paper-v">
+          <svg className="chairman-inkwash" viewBox="0 0 400 260" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="ink-far" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#8a97a8" stopOpacity="0.22" />
+                <stop offset="100%" stopColor="#8a97a8" stopOpacity="0" />
+              </linearGradient>
+              <linearGradient id="ink-near" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#6b7889" stopOpacity="0.28" />
+                <stop offset="100%" stopColor="#6b7889" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M0 120 Q 45 78 95 108 T 195 96 T 300 114 T 400 92 V 260 H 0 Z"
+              fill="url(#ink-far)"
+            />
+            <path
+              d="M0 168 Q 60 128 130 156 T 260 142 T 400 160 V 260 H 0 Z"
+              fill="url(#ink-near)"
+            />
+            <ellipse cx="120" cy="150" rx="150" ry="14" fill="#fff" opacity="0.12" />
+            <ellipse cx="300" cy="120" rx="110" ry="10" fill="#fff" opacity="0.1" />
+          </svg>
+
+          <svg className="chairman-corner chairman-corner-tl" viewBox="0 0 40 40" aria-hidden="true">
+            <path d="M2 20 Q2 2 20 2" fill="none" stroke="#a3242c" strokeWidth="1.6" opacity="0.55" />
+            <path d="M8 24 Q8 8 24 8" fill="none" stroke="#c9a24a" strokeWidth="1.2" opacity="0.6" />
+          </svg>
+          <svg className="chairman-corner chairman-corner-tr" viewBox="0 0 40 40" aria-hidden="true">
+            <path d="M2 20 Q2 2 20 2" fill="none" stroke="#a3242c" strokeWidth="1.6" opacity="0.55" />
+            <path d="M8 24 Q8 8 24 8" fill="none" stroke="#c9a24a" strokeWidth="1.2" opacity="0.6" />
+          </svg>
+          <svg className="chairman-corner chairman-corner-bl" viewBox="0 0 40 40" aria-hidden="true">
+            <path d="M2 20 Q2 2 20 2" fill="none" stroke="#a3242c" strokeWidth="1.6" opacity="0.55" />
+            <path d="M8 24 Q8 8 24 8" fill="none" stroke="#c9a24a" strokeWidth="1.2" opacity="0.6" />
+          </svg>
+          <svg className="chairman-corner chairman-corner-br" viewBox="0 0 40 40" aria-hidden="true">
+            <path d="M2 20 Q2 2 20 2" fill="none" stroke="#a3242c" strokeWidth="1.6" opacity="0.55" />
+            <path d="M8 24 Q8 8 24 8" fill="none" stroke="#c9a24a" strokeWidth="1.2" opacity="0.6" />
+          </svg>
+
+          <span className="chairman-scroll-title" aria-hidden="true">
+            จดหมายจากดวงดาว
+          </span>
+
           <span className="chairman-scroll-text">
             {eventChars.slice(0, typedCount).map((ch, i) => (
               <span key={i} className="chairman-letter-char">
                 {ch}
               </span>
             ))}
-            {showCaret && <span className="chairman-caret" />}
           </span>
           <span className={`chairman-scroll-name${showName ? " chairman-scroll-name-visible" : ""}`}>
             {nameText}
           </span>
-          <span className="chairman-blossom" aria-hidden="true" />
-          <span className={`chairman-seal${showName ? " chairman-seal-visible" : ""}`} />
+
+          <svg className="chairman-blossom" viewBox="0 0 90 90" aria-hidden="true">
+            <path
+              d="M6 88 C 10 66 16 52 30 40 C 40 32 46 26 50 14"
+              fill="none"
+              stroke="#5b3a24"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              opacity="0.85"
+            />
+            <path
+              d="M24 46 C 30 42 34 38 34 32"
+              fill="none"
+              stroke="#5b3a24"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              opacity="0.75"
+            />
+            {[
+              { cx: 50, cy: 14, r: 6.5, o: 0.95 },
+              { cx: 34, cy: 32, r: 5, o: 0.85 },
+              { cx: 22, cy: 44, r: 6, o: 0.9 },
+              { cx: 12, cy: 60, r: 4.5, o: 0.8 },
+            ].map((b, i) => (
+              <g key={i} opacity={b.o}>
+                {[0, 72, 144, 216, 288].map((ang) => (
+                  <ellipse
+                    key={ang}
+                    cx={b.cx}
+                    cy={b.cy - b.r * 0.9}
+                    rx={b.r * 0.55}
+                    ry={b.r * 0.85}
+                    fill="#eb90a6"
+                    transform={`rotate(${ang} ${b.cx} ${b.cy})`}
+                  />
+                ))}
+                <circle cx={b.cx} cy={b.cy} r={b.r * 0.32} fill="#f7d0a8" />
+              </g>
+            ))}
+          </svg>
+
+          <span className="chairman-petal chairman-petal-1" aria-hidden="true" />
+          <span className="chairman-petal chairman-petal-2" aria-hidden="true" />
+          <span className="chairman-petal chairman-petal-3" aria-hidden="true" />
+
+          <span className={`chairman-seal${showName ? " chairman-seal-visible" : ""}`}>
+            <svg viewBox="0 0 40 40" aria-hidden="true">
+              <rect x="2" y="2" width="36" height="36" rx="3" fill="none" stroke="#f4d9a0" strokeWidth="1.4" opacity="0.8" />
+              <path
+                d="M20 9 C 24 9 27 12 27 16 C 27 19 25 21 22 22 L 22 27 C 22 29 21 30 20 30 C 19 30 18 29 18 27 L 18 22 C 15 21 13 19 13 16 C 13 12 16 9 20 9 Z"
+                fill="#f4d9a0"
+              />
+            </svg>
+          </span>
         </span>
       </div>
     </div>
@@ -426,6 +520,15 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
 
     // ?demo=1 — ซ้อมหน้าจอโดยไม่ต้องต่อ Firebase (เผื่อเน็ตงานล่ม)
     if (new URLSearchParams(window.location.search).has("demo")) {
+      // โคมประธานตัวอย่าง ให้พรีวิวจดหมายได้โดยไม่ต้องเขียน Firestore จริง
+      enqueue({
+        id: "demo-chairman",
+        text: "เปิดโลกปฐมวัยไทขอนแก่น ประจำปี 2569",
+        subtitle: "ดร. สุภชัย จันปุ่ม",
+        designId: "chairman-gold",
+        variant: "chairman",
+      });
+
       const demo = setInterval(() => {
         enqueue({
           id: `demo-${Date.now()}-${Math.random()}`,
