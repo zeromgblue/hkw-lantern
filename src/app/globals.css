@@ -143,6 +143,22 @@ body {
   top: 48%;
   width: 0;
   height: 0;
+  opacity: 0;
+  animation: orbit-rise-in var(--rise-dur, 7s) cubic-bezier(0.37, 0, 0.63, 1) forwards;
+}
+
+@keyframes orbit-rise-in {
+  0% {
+    opacity: 0;
+    transform: translateY(60vh);
+  }
+  8% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .orbit-spin {
@@ -171,13 +187,11 @@ body {
   position: absolute;
   left: 0;
   top: 0;
-  opacity: 0;
-  animation-name: orbit-rotate-ccw, orbit-fade-in;
-  animation-duration: var(--period, 80s), 1s;
-  animation-timing-function: linear, ease-out;
-  animation-iteration-count: infinite, 1;
-  animation-delay: var(--phase, 0s), 0s;
-  animation-fill-mode: none, forwards;
+  animation-name: orbit-rotate-ccw;
+  animation-duration: var(--period, 80s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-delay: var(--phase, 0s);
 }
 
 @keyframes orbit-rotate-cw {
@@ -198,19 +212,6 @@ body {
   }
 }
 
-@keyframes orbit-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.orbit-twinkle {
-  opacity: 1;
-}
-
 .lantern-sway {
   will-change: transform;
   animation: sway var(--sway-dur, 7s) ease-in-out infinite alternate;
@@ -222,6 +223,26 @@ body {
   }
   to {
     transform: translateX(var(--sway)) rotate(var(--tilt));
+  }
+}
+
+/* โคมทั่วไปวิบวับความสว่างเบา ๆ — รวมมาไว้ในชั้นเดียวกับ sway แทนที่จะแยกเป็น wrapper
+   ต่างหาก (ประหยัด DOM node + compositor layer ต่อโคมหนึ่งชั้น สำคัญมากตอนมีเป็นร้อยดวง) */
+.lantern-sway-twinkle {
+  animation-name: sway, twinkle;
+  animation-duration: var(--sway-dur, 7s), var(--twinkle-dur, 3s);
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: 0s, var(--twinkle-delay, 0s);
+  animation-direction: alternate, alternate;
+}
+
+@keyframes twinkle {
+  from {
+    opacity: 0.78;
+  }
+  to {
+    opacity: 1;
   }
 }
 
@@ -342,7 +363,9 @@ body {
   top: 0;
   border-radius: 50%;
   background: var(--pcolor, #ffd84d);
-  box-shadow: 0 0 6px 2px var(--pcolor, #ffd84d);
+  box-shadow:
+    0 0 5px 1.5px #fffbe8,
+    0 0 18px 6px var(--pcolor, #ffd84d);
   opacity: 0;
   animation: firework-fly var(--dur, 1s) ease-out forwards;
   animation-delay: var(--delay, 0s);
@@ -424,15 +447,15 @@ body {
   position: absolute;
   left: 50%;
   top: 88%;
-  width: 32px;
-  height: 32px;
-  margin: -16px 0 0 -16px;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
   border-radius: 50%;
   background: radial-gradient(circle, #fffaf0 0%, #ffd84d 40%, transparent 72%);
   opacity: 0;
   z-index: 4;
   pointer-events: none;
-  animation: chairman-flash-pop 0.75s ease-out forwards;
+  animation: chairman-flash-pop 0.9s ease-out forwards;
 }
 
 @keyframes chairman-flash-pop {
@@ -441,10 +464,38 @@ body {
     opacity: 0.95;
   }
   55% {
-    opacity: 0.75;
+    opacity: 0.8;
   }
   100% {
-    transform: scale(6);
+    transform: scale(10);
+    opacity: 0;
+  }
+}
+
+/* แสงวาบเต็มจอตอนโคมประธานเปิดตัว — ฉาบท้องฟ้ารอบ ๆ ให้รู้สึกอลังการเป็นไคลแมกซ์ */
+.grand-flash {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 220vmax;
+  height: 220vmax;
+  translate: -50% -50%;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 246, 214, 0.55) 0%, rgba(255, 184, 77, 0.24) 32%, transparent 68%);
+  opacity: 0;
+  animation: grand-flash-pop 1s ease-out forwards;
+}
+
+@keyframes grand-flash-pop {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
     opacity: 0;
   }
 }
@@ -793,11 +844,17 @@ body {
   .firework-particle,
   .firework-rocket,
   .chairman-flash,
+  .grand-flash,
   .chairman-scroll-paper-v::after,
+  .orbit-anchor,
   .orbit-spin,
   .orbit-counter-spin,
-  .orbit-twinkle,
+  .lantern-sway-twinkle,
   .chairman-float-out-leaving {
     animation: none;
+  }
+
+  .orbit-anchor {
+    opacity: 1;
   }
 }

@@ -37,6 +37,8 @@ type Flying = {
   phaseSec: number;
   twinkleDur: number;
   twinkleDelay: number;
+  riseDuration: number;
+  anchorLeftVw: number;
 };
 
 type ChairmanItem = {
@@ -48,12 +50,13 @@ type ChairmanItem = {
   tilt: number;
 };
 
-const MAX_ACTIVE = 150;
+const MAX_ACTIVE = 220;
 const SPAWN_INTERVAL_MS = 400;
 const BASE_WIDTH = 170;
 const ORBIT_RING_COUNT = 6;
 const ORBIT_BASE_RADIUS_VMIN = 14;
 const ORBIT_RADIUS_STEP_VMIN = 6;
+const ORBIT_HUB_OFFSET_VW = 27;
 const ORBIT_BASE_PERIOD_SEC = 70;
 const ORBIT_PERIOD_STEP_SEC = 16;
 const GOLDEN_ANGLE_DEG = 137.50776;
@@ -64,7 +67,6 @@ const CHAIRMAN_OPEN_DELAY_MS = 4200;
 const CHAIRMAN_TYPE_START_MS = 6000;
 const CHAIRMAN_TYPE_INTERVAL_MS = 55;
 const CHAIRMAN_NAME_DELAY_MS = 500;
-const CHAIRMAN_FIREWORKS_DURATION_MS = 12000;
 const CHAIRMAN_HOLD_MS = 10000;
 const CHAIRMAN_LEAVE_MS = 5000;
 
@@ -90,20 +92,30 @@ type FireworkParticle = {
   size: number;
 };
 
-const FIREWORK_COLORS = ["#ffd84d", "#ff8a3c", "#fff6cd", "#ffb703", "#ff8fa3", "#7dd3fc"];
+const FIREWORK_COLORS = [
+  "#ffd84d",
+  "#ff8a3c",
+  "#fff6cd",
+  "#ffb703",
+  "#ff8fa3",
+  "#7dd3fc",
+  "#c4b5fd",
+  "#5eead4",
+  "#f87171",
+];
 
 // สุ่มตำแหน่งพลุ — เรียกจาก timer callback เท่านั้น ห้ามเรียกระหว่าง render
 function makeFireworkParticles(count = 26, spread = 1): FireworkParticle[] {
   return Array.from({ length: count }, (_, i) => {
     const angle = (i / count) * Math.PI * 2 + Math.random() * 0.2;
-    const dist = (55 + Math.random() * 80) * spread;
+    const dist = (70 + Math.random() * 150) * spread;
     return {
       dx: Math.cos(angle) * dist,
       dy: Math.sin(angle) * dist,
-      delay: Math.random() * 0.12,
-      dur: 0.8 + Math.random() * 0.5,
+      delay: Math.random() * 0.15,
+      dur: 1 + Math.random() * 0.7,
       color: FIREWORK_COLORS[i % FIREWORK_COLORS.length],
-      size: 3 + Math.random() * 3.5 * spread,
+      size: 4 + Math.random() * 5 * spread,
     };
   });
 }
@@ -146,7 +158,7 @@ function makeRocket(side: "left" | "right", id: number): SkyRocket {
   return {
     id,
     xPercent,
-    peakPercent: 26 + Math.random() * 20,
+    peakPercent: 30 + Math.random() * 32,
     color: FIREWORK_COLORS[Math.floor(Math.random() * FIREWORK_COLORS.length)],
     flightMs: 950 + Math.random() * 350,
   };
@@ -159,10 +171,10 @@ function SkyRocketView({ rocket, onDone }: { rocket: SkyRocket; onDone: (id: num
   useEffect(() => {
     const toBurst = setTimeout(() => {
       setPhase("burst");
-      setParticles(makeFireworkParticles(34, 1.3));
-      playFireworkBoom(0.85);
+      setParticles(makeFireworkParticles(58, 1.9));
+      playFireworkBoom(1);
     }, rocket.flightMs);
-    const toDone = setTimeout(() => onDone(rocket.id), rocket.flightMs + 1600);
+    const toDone = setTimeout(() => onDone(rocket.id), rocket.flightMs + 2000);
     return () => {
       clearTimeout(toBurst);
       clearTimeout(toDone);
@@ -224,36 +236,53 @@ function ChairmanLantern({
 }) {
   const [phase, setPhase] = useState<ChairmanPhase>("rising");
   const [typedCount, setTypedCount] = useState(0);
-  const [burst, setBurst] = useState<{ id: number; particles: FireworkParticle[] } | null>(null);
+  const [bursts, setBursts] = useState<{ id: number; particles: FireworkParticle[] }[]>([]);
   const [flashId, setFlashId] = useState<number | null>(null);
+  const burstSerial = useRef(0);
+  const burstTimers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
 
   const eventChars = useMemo(() => splitGraphemes(item.doc.text), [item.doc.text]);
   const nameText = item.doc.subtitle ?? "";
 
+  // ยิงพลุลูกใหม่ซ้อนของเก่าได้ (ไม่ตัดพลุลูกก่อนหน้าทิ้งกลางอากาศ) แล้วเก็บกวาดตัวเองทิ้งหลังเล่นจบ
+  const fireBurst = useCallback((count: number, spread: number) => {
+    const id = burstSerial.current++;
+    setBursts((prev) => [...prev, { id, particles: makeFireworkParticles(count, spread) }]);
+    const t = setTimeout(() => {
+      burstTimers.current.delete(t);
+      setBursts((prev) => prev.filter((b) => b.id !== id));
+    }, 2100);
+    burstTimers.current.add(t);
+  }, []);
+
   // ไล่ลำดับ: ปรากฏตัว -> โคมแตกเป็นแสงวาบแล้วกลายเป็นจดหมายกางออกสองข้าง -> พิมพ์ข้อความ
-  // จากนั้นอยู่กลางจอถาวร (ไม่ลอยหายไปอีกต่อไป) พลุจะยิงต่อเนื่องแค่ช่วงแรกแล้วหยุด
+  // จากนั้นอยู่กลางจอถาวร (ไม่ลอยหายไปอีกต่อไป) พลุยิงแค่ตอนเปิดตัวจุดเดียว ไม่ยิงวนซ้ำทับจดหมายตลอดโชว์
   useEffect(() => {
     const toOpening = setTimeout(() => {
       setPhase("opening");
       setFlashId(Date.now());
-      // พลุชุดใหญ่ตรงจังหวะที่โคมแปลงร่างเป็นจดหมาย
-      setBurst({ id: Date.now() + 1, particles: makeFireworkParticles(42, 1.5) });
-      playFireworkBoom(1.3);
+      // โมเมนต์เปิดตัว — พลุใหญ่ซ้อนกัน 3 ชั้นรัว ๆ ให้ดูอลังการเป็นไคลแมกซ์
+      fireBurst(90, 2.4);
+      playFireworkBoom(1.5);
+      const t1 = setTimeout(() => {
+        fireBurst(64, 1.7);
+        playFireworkBoom(1.2);
+      }, 150);
+      const t2 = setTimeout(() => {
+        fireBurst(46, 1.15);
+        playFireworkBoom(1);
+      }, 320);
+      burstTimers.current.add(t1);
+      burstTimers.current.add(t2);
     }, CHAIRMAN_OPEN_DELAY_MS);
     const toTyping = setTimeout(() => setPhase("typing"), CHAIRMAN_TYPE_START_MS);
 
-    // พลุระลอกต่อ ๆ ไปทุก 3.4 วิ แต่หยุดหลังจากช่วงเปิดตัว ไม่ยิงตลอดไป
-    const burstInterval = setInterval(() => {
-      setBurst({ id: Date.now(), particles: makeFireworkParticles() });
-      playFireworkBoom(1);
-    }, 3400);
-    const stopBursts = setTimeout(() => clearInterval(burstInterval), CHAIRMAN_FIREWORKS_DURATION_MS);
-
+    const currentBurstTimers = burstTimers.current;
     return () => {
       clearTimeout(toOpening);
       clearTimeout(toTyping);
-      clearInterval(burstInterval);
-      clearTimeout(stopBursts);
+      currentBurstTimers.forEach(clearTimeout);
+      currentBurstTimers.clear();
     };
   }, []);
 
@@ -319,8 +348,11 @@ function ChairmanLantern({
           />
         ))}
       </div>
-      {burst && <FireworkBurst key={burst.id} particles={burst.particles} />}
+      {bursts.map((b) => (
+        <FireworkBurst key={b.id} particles={b.particles} />
+      ))}
       {flashId !== null && <span key={flashId} className="chairman-flash" />}
+      {flashId !== null && <span key={`grand-${flashId}`} className="grand-flash" />}
 
       <Image
         src="/chairman-lantern.png"
@@ -483,11 +515,15 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
     setRockets((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
-  // ยิงพลุจากซ้ายและขวาพร้อมกันเป็นชุด ๆ
+  // ยิงพลุจากซ้ายและขวาพร้อมกันเป็นชุด ๆ ฝั่งละ 2 ลูก ให้เต็มท้องฟ้าสมกับเป็นโคมประธาน
   const launchRocketBatch = useCallback(() => {
-    const left = makeRocket("left", rocketSerial.current++);
-    const right = makeRocket("right", rocketSerial.current++);
-    setRockets((prev) => [...prev, left, right]);
+    const batch = [
+      makeRocket("left", rocketSerial.current++),
+      makeRocket("left", rocketSerial.current++),
+      makeRocket("right", rocketSerial.current++),
+      makeRocket("right", rocketSerial.current++),
+    ];
+    setRockets((prev) => [...prev, ...batch]);
   }, []);
 
   const spawn = useCallback(
@@ -505,8 +541,8 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
           tilt: 1 + Math.random(),
         });
 
-        // ยิงพลุจากซ้าย-ขวาเป็นชุด ๆ ช่วงที่โคมประธานปรากฏตัว
-        [200, 1900, 3600, 5300, 7000].forEach((delay) => {
+        // ยิงพลุจากซ้าย-ขวาเป็นชุด ๆ รัวถี่ยาวตลอดช่วงที่โคมประธานปรากฏตัว ให้เต็มท้องฟ้าทั้งสองฝั่ง
+        [200, 1000, 1800, 2600, 3400, 4200, 5000, 5800, 6600, 7400, 8200, 9000].forEach((delay) => {
           const rocketTimer = setTimeout(() => {
             timers.current.delete(rocketTimer);
             launchRocketBatch();
@@ -514,17 +550,21 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
           timers.current.add(rocketTimer);
         });
       } else {
-        // จัดโคมเข้าวงแหวนรอบโคมประธานแบบ golden-angle กระจายสม่ำเสมอ
-        // ไม่ทับกันแม้จะสะสมเพิ่มขึ้นเรื่อย ๆ โดยไม่ต้องรื้อตำแหน่งโคมเก่า
+        // จัดโคมเข้าวงแหวนรอบ "จุดหมุน" 2 จุด ฝั่งซ้าย-ขวาของจอ สลับกันไปทีละดวงแบบ golden-angle
+        // (เดิมมีจุดหมุนเดียวตรงกลางจอ ทำให้โคมกองรวมกันแคบ ๆ กลางจอ ทั้งที่จอกว้างกว่านั้นมาก
+        // ยิ่งกองแน่นยิ่งแลค เพราะ glow/เอฟเฟกต์ที่ทับซ้อนกันต้องเรนเดอร์ซ้ำในพื้นที่เดียว)
         const idx = orbitIndex.current++;
-        const ring = idx % ORBIT_RING_COUNT;
-        const posInRing = Math.floor(idx / ORBIT_RING_COUNT);
+        const isRightHub = idx % 2 === 1;
+        const hubIdx = Math.floor(idx / 2);
+        const ring = hubIdx % ORBIT_RING_COUNT;
+        const posInRing = Math.floor(hubIdx / ORBIT_RING_COUNT);
         const angleDeg = posInRing * GOLDEN_ANGLE_DEG + ring * (360 / ORBIT_RING_COUNT) * 0.5;
         const radiusVmin =
           ORBIT_BASE_RADIUS_VMIN + ring * ORBIT_RADIUS_STEP_VMIN + (Math.random() - 0.5) * 2.5;
         const periodSec =
           ORBIT_BASE_PERIOD_SEC + ring * ORBIT_PERIOD_STEP_SEC + (Math.random() - 0.5) * 10;
         const phaseSec = (angleDeg / 360) * periodSec;
+        const anchorLeftVw = 50 + (isRightHub ? 1 : -1) * ORBIT_HUB_OFFSET_VW;
 
         const item: Flying = {
           key: `${doc.id}-${serial.current++}`,
@@ -538,6 +578,9 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
           phaseSec,
           twinkleDur: 2 + Math.random() * 3,
           twinkleDelay: Math.random() * 3,
+          // ลอยขึ้นตรง ๆ เหมือนโคมประธาน แค่สุ่มความเร็วเล็กน้อยกันดูลอยพร้อมกันเป๊ะ
+          riseDuration: 6 + Math.random() * 3,
+          anchorLeftVw,
         };
 
         setFlying((prev) => {
@@ -681,7 +724,16 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
       {flying.map((item) => {
         const design = getDesign(item.doc.designId);
         return (
-          <div key={item.key} className="orbit-anchor">
+          <div
+            key={item.key}
+            className="orbit-anchor"
+            style={
+              {
+                left: `${item.anchorLeftVw}vw`,
+                "--rise-dur": `${item.riseDuration}s`,
+              } as React.CSSProperties
+            }
+          >
             <div
               className="orbit-spin"
               style={
@@ -702,39 +754,27 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
                   }
                 >
                   <div
-                    className="orbit-twinkle"
+                    className="lantern-sway lantern-sway-twinkle relative"
                     style={
                       {
+                        "--sway": `${item.sway}px`,
+                        "--sway-dur": `${item.swayDuration}s`,
+                        "--tilt": `${item.tilt}deg`,
                         "--twinkle-dur": `${item.twinkleDur}s`,
                         "--twinkle-delay": `${item.twinkleDelay}s`,
                       } as React.CSSProperties
                     }
                   >
                     <div
-                      className="lantern-sway relative"
-                      style={
-                        {
-                          "--sway": `${item.sway}px`,
-                          "--sway-dur": `${item.swayDuration}s`,
-                          "--tilt": `${item.tilt}deg`,
-                        } as React.CSSProperties
-                      }
-                    >
-                      <div
-                        className="lantern-halo"
-                        style={{ "--glow": design.glow } as React.CSSProperties}
-                      />
-                      <Lantern
-                        design={design}
-                        text={item.doc.text}
-                        width={BASE_WIDTH * item.scale}
-                        style={{
-                          position: "relative",
-                          zIndex: 1,
-                          filter: `drop-shadow(0 0 ${18 * item.scale}px ${design.glow}aa)`,
-                        }}
-                      />
-                    </div>
+                      className="lantern-halo"
+                      style={{ "--glow": design.glow } as React.CSSProperties}
+                    />
+                    <Lantern
+                      design={design}
+                      text={item.doc.text}
+                      width={BASE_WIDTH * item.scale}
+                      style={{ position: "relative", zIndex: 1 }}
+                    />
                   </div>
                 </div>
               </div>
