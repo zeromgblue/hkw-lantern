@@ -16,14 +16,15 @@ service cloud.firestore {
         ]
         && request.resource.data.createdAt == request.time;
 
-      // โคมประธาน — เนื้อหาคงที่ ไม่รับข้อความอิสระจากผู้ใช้ (หน้า /admin เท่านั้นที่เรียกใช้)
-      allow create: if request.resource.data.keys().hasOnly(['text', 'subtitle', 'designId', 'variant', 'createdAt'])
-        && request.resource.data.variant == 'chairman'
+      // โคมประธาน/รองประธาน — เนื้อหาคงที่ ไม่รับข้อความอิสระจากผู้ใช้ (หน้า /1 /2 /3 เท่านั้นที่เรียกใช้)
+      allow create: if request.resource.data.keys().hasOnly(['text', 'subtitle', 'designId', 'variant', 'photoUrl', 'createdAt'])
+        && request.resource.data.variant in ['chairman', 'chairman-left', 'chairman-right']
         && request.resource.data.designId == 'chairman-gold'
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 80
         && request.resource.data.subtitle is string
         && request.resource.data.subtitle.size() <= 80
+        && (request.resource.data.photoUrl == null || request.resource.data.photoUrl is string)
         && request.resource.data.createdAt == request.time;
 
       // delete เปิดสาธารณะเพราะเว็บนี้ไม่มีระบบล็อกอิน (ปุ่มลบทั้งหมดอยู่บนจอใหญ่)

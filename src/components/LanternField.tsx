@@ -219,15 +219,23 @@ function ChairmanLantern({
   design,
   onLeave,
   size = "main",
+  onStartLeaving,
+  forceLeaveSignal,
 }: {
   item: ChairmanItem;
   design: LanternDesign;
   onLeave: () => void;
   /** โคมรองประธาน (ซ้าย/ขวา) ใช้จดหมายขนาดย่อมกว่าโคมประธานหลัก กันชนกันตอนปล่อยพร้อมกัน */
   size?: "main" | "deputy";
+  /** เรียกตอนโคมนี้เริ่มลอยหายไปเอง (ใช้กับโคมประธานหลัก เพื่อสั่งให้โคมรองซ้าย/ขวาหายไปพร้อมกัน) */
+  onStartLeaving?: () => void;
+  /** เปลี่ยนค่าเมื่อไรให้บังคับโคมนี้เข้าสู่ช่วงลอยหายทันที (ใช้กับโคมรอง ให้ตามโคมประธานหลัก) */
+  forceLeaveSignal?: number;
 }) {
   const [phase, setPhase] = useState<ChairmanPhase>("rising");
   const [typedCount, setTypedCount] = useState(0);
+  // ค่าเริ่มต้นตอน mount ของ forceLeaveSignal — กันไม่ให้โคมรองที่เพิ่งปล่อยใหม่เจอสัญญาณเก่าจากรอบก่อนแล้วหายทันที
+  const initialLeaveSignal = useRef(forceLeaveSignal);
   const [burst, setBurst] = useState<{ id: number; particles: FireworkParticle[] } | null>(null);
   const [flashId, setFlashId] = useState<number | null>(null);
 
@@ -278,12 +286,22 @@ function ChairmanLantern({
     }
   }, [phase, typedCount, eventChars.length]);
 
-  // เผยชื่อเสร็จแล้ว ลอยค้างไว้ 10 วิ ก่อนค่อย ๆ ลอยขึ้นหายไป
+  // เผยชื่อเสร็จแล้ว ลอยค้างไว้ 10 วิ ก่อนค่อย ๆ ลอยขึ้นหายไป — เฉพาะโคมประธานหลัก (size="main")
+  // โคมรองซ้าย/ขวา ไม่ลอยหายเองตามคิว รอสัญญาณ forceLeaveSignal จากโคมประธานหลักแทน (ดู effect ถัดไป)
   useEffect(() => {
-    if (phase !== "revealName") return;
-    const toLeaving = setTimeout(() => setPhase("leaving"), CHAIRMAN_HOLD_MS);
+    if (phase !== "revealName" || size !== "main") return;
+    const toLeaving = setTimeout(() => {
+      setPhase("leaving");
+      onStartLeaving?.();
+    }, CHAIRMAN_HOLD_MS);
     return () => clearTimeout(toLeaving);
-  }, [phase]);
+  }, [phase, size, onStartLeaving]);
+
+  // โคมรองซ้าย/ขวา — บังคับให้ลอยหายพร้อมกับโคมประธานหลักทันทีที่ได้สัญญาณ ไม่รอคิวของตัวเอง
+  useEffect(() => {
+    if (forceLeaveSignal === undefined || forceLeaveSignal === initialLeaveSignal.current) return;
+    setPhase("leaving");
+  }, [forceLeaveSignal]);
 
   // รอแอนิเมชันลอยหายจบแล้วค่อยเอาโคมประธานออกจากจอจริง ๆ
   useEffect(() => {
@@ -490,6 +508,9 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
   const handleChairmanMainLeave = useCallback(() => setChairmanMain(null), []);
   const handleChairmanLeftLeave = useCallback(() => setChairmanLeft(null), []);
   const handleChairmanRightLeave = useCallback(() => setChairmanRight(null), []);
+  // โคมประธานหลักเริ่มลอยหาย -> สั่งโคมรองซ้าย/ขวาให้ลอยหายตามไปพร้อมกัน
+  const [chairmanLeaveSignal, setChairmanLeaveSignal] = useState(0);
+  const handleChairmanMainStartLeaving = useCallback(() => setChairmanLeaveSignal((n) => n + 1), []);
   const [rockets, setRockets] = useState<SkyRocket[]>([]);
   const queue = useRef<LanternDoc[]>([]);
   const held = useRef<LanternDoc[]>([]);
@@ -722,6 +743,7 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
             design={getDesign(chairmanLeft.doc.designId)}
             onLeave={handleChairmanLeftLeave}
             size="deputy"
+            forceLeaveSignal={chairmanLeaveSignal}
           />
         </div>
       )}
@@ -734,6 +756,7 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
             design={getDesign(chairmanRight.doc.designId)}
             onLeave={handleChairmanRightLeave}
             size="deputy"
+            forceLeaveSignal={chairmanLeaveSignal}
           />
         </div>
       )}
@@ -745,6 +768,7 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
             item={chairmanMain}
             design={getDesign(chairmanMain.doc.designId)}
             onLeave={handleChairmanMainLeave}
+            onStartLeaving={handleChairmanMainStartLeaving}
           />
         </div>
       )}
