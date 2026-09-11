@@ -297,7 +297,7 @@ function ChairmanLantern({
 
   // พิมพ์จบแล้วค่อยเผยชื่อประธานด้านล่าง
   useEffect(() => {
-    if (phase === "typing" && eventChars.length > 0 && typedCount >= eventChars.length) {
+    if (phase === "typing" && typedCount >= eventChars.length) {
       const t = setTimeout(() => setPhase("revealName"), CHAIRMAN_NAME_DELAY_MS);
       return () => clearTimeout(t);
     }
@@ -420,17 +420,24 @@ function ChairmanLantern({
             <path d="M8 24 Q8 8 24 8" fill="none" stroke="#c9a24a" strokeWidth="1.2" opacity="0.6" />
           </svg>
 
-          <span className="chairman-scroll-text">
-            {eventChars.slice(0, typedCount).map((ch, i) =>
-              ch === "\n" ? (
-                <br key={i} />
-              ) : (
-                <span key={i} className="chairman-letter-char">
-                  {ch}
-                </span>
-              ),
-            )}
-          </span>
+          {eventChars.length > 0 && (
+            <span className="chairman-scroll-text">
+              {eventChars.slice(0, typedCount).map((ch, i) =>
+                ch === "\n" ? (
+                  <br key={i} />
+                ) : (
+                  <span key={i} className="chairman-letter-char">
+                    {ch}
+                  </span>
+                ),
+              )}
+            </span>
+          )}
+          {item.doc.photoUrl && (
+            <span className={`chairman-scroll-photo${showName ? " chairman-scroll-photo-visible" : ""}`}>
+              <Image src={item.doc.photoUrl} alt="" width={96} height={96} unoptimized />
+            </span>
+          )}
           <span className={`chairman-scroll-name${showName ? " chairman-scroll-name-visible" : ""}`}>
             {nameText}
           </span>
@@ -647,6 +654,32 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
         designId: "chairman-gold",
         variant: "chairman",
       });
+
+      // โคมประธานคนที่ 2 (มีรูป ไม่มีข้อความเปิดงาน) — รอให้โคมแรกแสดงจบก่อนค่อยต่อคิว
+      const toChairman2 = setTimeout(() => {
+        enqueue({
+          id: "demo-chairman-2",
+          text: "",
+          subtitle: "นายวัชระ อันโยธา",
+          designId: "chairman-gold",
+          variant: "chairman",
+          photoUrl: "/chairman-photo-wachara.png",
+        });
+      }, 25000);
+      currentTimers.add(toChairman2);
+
+      // โคมประธานคนที่ 3 (มีรูป ไม่มีข้อความเปิดงาน) — ต่อคิวหลังคนที่ 2 แสดงจบ
+      const toChairman3 = setTimeout(() => {
+        enqueue({
+          id: "demo-chairman-3",
+          text: "",
+          subtitle: "ธีรัช คำยิ่ง",
+          designId: "chairman-gold",
+          variant: "chairman",
+          photoUrl: "/chairman-photo-theerat.png",
+        });
+      }, 50000);
+      currentTimers.add(toChairman3);
 
       const demo = setInterval(() => {
         enqueue({
