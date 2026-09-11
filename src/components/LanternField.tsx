@@ -37,8 +37,6 @@ type Flying = {
   phaseSec: number;
   twinkleDur: number;
   twinkleDelay: number;
-  riseDuration: number;
-  anchorLeftVw: number;
 };
 
 type ChairmanItem = {
@@ -50,23 +48,24 @@ type ChairmanItem = {
   tilt: number;
 };
 
-const MAX_ACTIVE = 220;
+const MAX_ACTIVE = 150;
 const SPAWN_INTERVAL_MS = 400;
 const BASE_WIDTH = 170;
 const ORBIT_RING_COUNT = 6;
 const ORBIT_BASE_RADIUS_VMIN = 14;
 const ORBIT_RADIUS_STEP_VMIN = 6;
-const ORBIT_HUB_OFFSET_VW = 27;
 const ORBIT_BASE_PERIOD_SEC = 70;
 const ORBIT_PERIOD_STEP_SEC = 16;
 const GOLDEN_ANGLE_DEG = 137.50776;
 const CHAIRMAN_SCALE = 1.4;
+const DEPUTY_CHAIRMAN_SCALE = 1.1;
 const CHAIRMAN_IMG_WIDTH = 210;
 const CHAIRMAN_IMG_RATIO = 1536 / 1024;
 const CHAIRMAN_OPEN_DELAY_MS = 4200;
 const CHAIRMAN_TYPE_START_MS = 6000;
 const CHAIRMAN_TYPE_INTERVAL_MS = 55;
 const CHAIRMAN_NAME_DELAY_MS = 500;
+const CHAIRMAN_FIREWORKS_DURATION_MS = 12000;
 const CHAIRMAN_HOLD_MS = 10000;
 const CHAIRMAN_LEAVE_MS = 5000;
 
@@ -92,30 +91,20 @@ type FireworkParticle = {
   size: number;
 };
 
-const FIREWORK_COLORS = [
-  "#ffd84d",
-  "#ff8a3c",
-  "#fff6cd",
-  "#ffb703",
-  "#ff8fa3",
-  "#7dd3fc",
-  "#c4b5fd",
-  "#5eead4",
-  "#f87171",
-];
+const FIREWORK_COLORS = ["#ffd84d", "#ff8a3c", "#fff6cd", "#ffb703", "#ff8fa3", "#7dd3fc"];
 
 // สุ่มตำแหน่งพลุ — เรียกจาก timer callback เท่านั้น ห้ามเรียกระหว่าง render
 function makeFireworkParticles(count = 26, spread = 1): FireworkParticle[] {
   return Array.from({ length: count }, (_, i) => {
     const angle = (i / count) * Math.PI * 2 + Math.random() * 0.2;
-    const dist = (70 + Math.random() * 150) * spread;
+    const dist = (55 + Math.random() * 80) * spread;
     return {
       dx: Math.cos(angle) * dist,
       dy: Math.sin(angle) * dist,
-      delay: Math.random() * 0.15,
-      dur: 1 + Math.random() * 0.7,
+      delay: Math.random() * 0.12,
+      dur: 0.8 + Math.random() * 0.5,
       color: FIREWORK_COLORS[i % FIREWORK_COLORS.length],
-      size: 4 + Math.random() * 5 * spread,
+      size: 3 + Math.random() * 3.5 * spread,
     };
   });
 }
@@ -158,7 +147,7 @@ function makeRocket(side: "left" | "right", id: number): SkyRocket {
   return {
     id,
     xPercent,
-    peakPercent: 30 + Math.random() * 32,
+    peakPercent: 26 + Math.random() * 20,
     color: FIREWORK_COLORS[Math.floor(Math.random() * FIREWORK_COLORS.length)],
     flightMs: 950 + Math.random() * 350,
   };
@@ -171,10 +160,10 @@ function SkyRocketView({ rocket, onDone }: { rocket: SkyRocket; onDone: (id: num
   useEffect(() => {
     const toBurst = setTimeout(() => {
       setPhase("burst");
-      setParticles(makeFireworkParticles(58, 1.9));
-      playFireworkBoom(1);
+      setParticles(makeFireworkParticles(34, 1.3));
+      playFireworkBoom(0.85);
     }, rocket.flightMs);
-    const toDone = setTimeout(() => onDone(rocket.id), rocket.flightMs + 2000);
+    const toDone = setTimeout(() => onDone(rocket.id), rocket.flightMs + 1600);
     return () => {
       clearTimeout(toBurst);
       clearTimeout(toDone);
@@ -229,60 +218,46 @@ function ChairmanLantern({
   item,
   design,
   onLeave,
+  size = "main",
 }: {
   item: ChairmanItem;
   design: LanternDesign;
   onLeave: () => void;
+  /** โคมรองประธาน (ซ้าย/ขวา) ใช้จดหมายขนาดย่อมกว่าโคมประธานหลัก กันชนกันตอนปล่อยพร้อมกัน */
+  size?: "main" | "deputy";
 }) {
   const [phase, setPhase] = useState<ChairmanPhase>("rising");
   const [typedCount, setTypedCount] = useState(0);
-  const [bursts, setBursts] = useState<{ id: number; particles: FireworkParticle[] }[]>([]);
+  const [burst, setBurst] = useState<{ id: number; particles: FireworkParticle[] } | null>(null);
   const [flashId, setFlashId] = useState<number | null>(null);
-  const burstSerial = useRef(0);
-  const burstTimers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
 
   const eventChars = useMemo(() => splitGraphemes(item.doc.text), [item.doc.text]);
   const nameText = item.doc.subtitle ?? "";
 
-  // ยิงพลุลูกใหม่ซ้อนของเก่าได้ (ไม่ตัดพลุลูกก่อนหน้าทิ้งกลางอากาศ) แล้วเก็บกวาดตัวเองทิ้งหลังเล่นจบ
-  const fireBurst = useCallback((count: number, spread: number) => {
-    const id = burstSerial.current++;
-    setBursts((prev) => [...prev, { id, particles: makeFireworkParticles(count, spread) }]);
-    const t = setTimeout(() => {
-      burstTimers.current.delete(t);
-      setBursts((prev) => prev.filter((b) => b.id !== id));
-    }, 2100);
-    burstTimers.current.add(t);
-  }, []);
-
   // ไล่ลำดับ: ปรากฏตัว -> โคมแตกเป็นแสงวาบแล้วกลายเป็นจดหมายกางออกสองข้าง -> พิมพ์ข้อความ
-  // จากนั้นอยู่กลางจอถาวร (ไม่ลอยหายไปอีกต่อไป) พลุยิงแค่ตอนเปิดตัวจุดเดียว ไม่ยิงวนซ้ำทับจดหมายตลอดโชว์
+  // จากนั้นอยู่กลางจอถาวร (ไม่ลอยหายไปอีกต่อไป) พลุจะยิงต่อเนื่องแค่ช่วงแรกแล้วหยุด
   useEffect(() => {
     const toOpening = setTimeout(() => {
       setPhase("opening");
       setFlashId(Date.now());
-      // โมเมนต์เปิดตัว — พลุใหญ่ซ้อนกัน 3 ชั้นรัว ๆ ให้ดูอลังการเป็นไคลแมกซ์
-      fireBurst(90, 2.4);
-      playFireworkBoom(1.5);
-      const t1 = setTimeout(() => {
-        fireBurst(64, 1.7);
-        playFireworkBoom(1.2);
-      }, 150);
-      const t2 = setTimeout(() => {
-        fireBurst(46, 1.15);
-        playFireworkBoom(1);
-      }, 320);
-      burstTimers.current.add(t1);
-      burstTimers.current.add(t2);
+      // พลุชุดใหญ่ตรงจังหวะที่โคมแปลงร่างเป็นจดหมาย
+      setBurst({ id: Date.now() + 1, particles: makeFireworkParticles(42, 1.5) });
+      playFireworkBoom(1.3);
     }, CHAIRMAN_OPEN_DELAY_MS);
     const toTyping = setTimeout(() => setPhase("typing"), CHAIRMAN_TYPE_START_MS);
 
-    const currentBurstTimers = burstTimers.current;
+    // พลุระลอกต่อ ๆ ไปทุก 3.4 วิ แต่หยุดหลังจากช่วงเปิดตัว ไม่ยิงตลอดไป
+    const burstInterval = setInterval(() => {
+      setBurst({ id: Date.now(), particles: makeFireworkParticles() });
+      playFireworkBoom(1);
+    }, 3400);
+    const stopBursts = setTimeout(() => clearInterval(burstInterval), CHAIRMAN_FIREWORKS_DURATION_MS);
+
     return () => {
       clearTimeout(toOpening);
       clearTimeout(toTyping);
-      currentBurstTimers.forEach(clearTimeout);
-      currentBurstTimers.clear();
+      clearInterval(burstInterval);
+      clearTimeout(stopBursts);
     };
   }, []);
 
@@ -295,7 +270,7 @@ function ChairmanLantern({
     return () => clearInterval(interval);
   }, [phase, eventChars.length]);
 
-  // พิมพ์จบแล้วค่อยเผยชื่อประธานด้านล่าง
+  // พิมพ์จบแล้วค่อยเผยชื่อประธานด้านล่าง (ไม่มีข้อความเลยก็ต้องเผยชื่อได้ เช่นจดหมายรองประธานที่ไม่มีข้อความงาน)
   useEffect(() => {
     if (phase === "typing" && typedCount >= eventChars.length) {
       const t = setTimeout(() => setPhase("revealName"), CHAIRMAN_NAME_DELAY_MS);
@@ -348,11 +323,8 @@ function ChairmanLantern({
           />
         ))}
       </div>
-      {bursts.map((b) => (
-        <FireworkBurst key={b.id} particles={b.particles} />
-      ))}
+      {burst && <FireworkBurst key={burst.id} particles={burst.particles} />}
       {flashId !== null && <span key={flashId} className="chairman-flash" />}
-      {flashId !== null && <span key={`grand-${flashId}`} className="grand-flash" />}
 
       <Image
         src="/chairman-lantern.png"
@@ -370,7 +342,7 @@ function ChairmanLantern({
       {/* จดหมายกางออกลงด้านล่าง ห้อยจากกระบอกใต้โคม เหมือนม้วนสาส์นจีนโบราณ */}
       <div className={`chairman-scroll-v${scrollOpen ? " chairman-scroll-v-open" : ""}`}>
         <span className="chairman-scroll-cap" />
-        <span className="chairman-scroll-paper-v">
+        <span className={`chairman-scroll-paper-v${size === "deputy" ? " chairman-scroll-paper-v-deputy" : ""}`}>
           <svg className="chairman-inkwash" viewBox="0 0 400 260" preserveAspectRatio="none" aria-hidden="true">
             <defs>
               <linearGradient id="ink-far" x1="0" y1="0" x2="0" y2="1">
@@ -420,8 +392,18 @@ function ChairmanLantern({
             <path d="M8 24 Q8 8 24 8" fill="none" stroke="#c9a24a" strokeWidth="1.2" opacity="0.6" />
           </svg>
 
+          {item.doc.photoUrl && (
+            <span
+              className={`chairman-portrait${size === "deputy" ? " chairman-portrait-deputy" : ""}${
+                scrollOpen ? " chairman-portrait-visible" : ""
+              }`}
+            >
+              <Image src={item.doc.photoUrl} alt="" fill sizes="220px" unoptimized />
+            </span>
+          )}
+
           {eventChars.length > 0 && (
-            <span className="chairman-scroll-text">
+            <span className={`chairman-scroll-text${size === "deputy" ? " chairman-scroll-text-deputy" : ""}`}>
               {eventChars.slice(0, typedCount).map((ch, i) =>
                 ch === "\n" ? (
                   <br key={i} />
@@ -433,12 +415,9 @@ function ChairmanLantern({
               )}
             </span>
           )}
-          {item.doc.photoUrl && (
-            <span className={`chairman-scroll-photo${showName ? " chairman-scroll-photo-visible" : ""}`}>
-              <Image src={item.doc.photoUrl} alt="" width={96} height={96} unoptimized />
-            </span>
-          )}
-          <span className={`chairman-scroll-name${showName ? " chairman-scroll-name-visible" : ""}`}>
+          <span
+            className={`chairman-scroll-name${size === "deputy" ? " chairman-scroll-name-deputy" : ""}${showName ? " chairman-scroll-name-visible" : ""}`}
+          >
             {nameText}
           </span>
 
@@ -505,8 +484,12 @@ function ChairmanLantern({
 export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: number) => void }>(
   function LanternField({ onCount }, ref) {
   const [flying, setFlying] = useState<Flying[]>([]);
-  const [chairman, setChairman] = useState<ChairmanItem | null>(null);
-  const handleChairmanLeave = useCallback(() => setChairman(null), []);
+  const [chairmanMain, setChairmanMain] = useState<ChairmanItem | null>(null);
+  const [chairmanLeft, setChairmanLeft] = useState<ChairmanItem | null>(null);
+  const [chairmanRight, setChairmanRight] = useState<ChairmanItem | null>(null);
+  const handleChairmanMainLeave = useCallback(() => setChairmanMain(null), []);
+  const handleChairmanLeftLeave = useCallback(() => setChairmanLeft(null), []);
+  const handleChairmanRightLeave = useCallback(() => setChairmanRight(null), []);
   const [rockets, setRockets] = useState<SkyRocket[]>([]);
   const queue = useRef<LanternDoc[]>([]);
   const held = useRef<LanternDoc[]>([]);
@@ -522,34 +505,35 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
     setRockets((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
-  // ยิงพลุจากซ้ายและขวาพร้อมกันเป็นชุด ๆ ฝั่งละ 2 ลูก ให้เต็มท้องฟ้าสมกับเป็นโคมประธาน
+  // ยิงพลุจากซ้ายและขวาพร้อมกันเป็นชุด ๆ
   const launchRocketBatch = useCallback(() => {
-    const batch = [
-      makeRocket("left", rocketSerial.current++),
-      makeRocket("left", rocketSerial.current++),
-      makeRocket("right", rocketSerial.current++),
-      makeRocket("right", rocketSerial.current++),
-    ];
-    setRockets((prev) => [...prev, ...batch]);
+    const left = makeRocket("left", rocketSerial.current++);
+    const right = makeRocket("right", rocketSerial.current++);
+    setRockets((prev) => [...prev, left, right]);
   }, []);
 
   const spawn = useCallback(
     (doc: LanternDoc) => {
-      const isChairman = doc.variant === "chairman";
+      const isChairman =
+        doc.variant === "chairman" || doc.variant === "chairman-left" || doc.variant === "chairman-right";
 
       if (isChairman) {
-        // โคมประธานอยู่กลางจอถาวร ไม่ลอยหายไปอีก
-        setChairman({
+        // โคมประธาน/รองประธานอยู่กลางจอ (หรือซ้าย/ขวา) ถาวร ไม่ลอยหายไปอีก
+        const item: ChairmanItem = {
           key: `${doc.id}-${serial.current++}`,
           doc,
-          scale: CHAIRMAN_SCALE,
+          scale: doc.variant === "chairman" ? CHAIRMAN_SCALE : DEPUTY_CHAIRMAN_SCALE,
           swayDuration: 7 + Math.random() * 2,
           sway: 8 + Math.random() * 6,
           tilt: 1 + Math.random(),
-        });
+        };
 
-        // ยิงพลุจากซ้าย-ขวาเป็นชุด ๆ รัวถี่ยาวตลอดช่วงที่โคมประธานปรากฏตัว ให้เต็มท้องฟ้าทั้งสองฝั่ง
-        [200, 1000, 1800, 2600, 3400, 4200, 5000, 5800, 6600, 7400, 8200, 9000].forEach((delay) => {
+        if (doc.variant === "chairman-left") setChairmanLeft(item);
+        else if (doc.variant === "chairman-right") setChairmanRight(item);
+        else setChairmanMain(item);
+
+        // ยิงพลุจากซ้าย-ขวาเป็นชุด ๆ ช่วงที่โคมประธานปรากฏตัว
+        [200, 1900, 3600, 5300, 7000].forEach((delay) => {
           const rocketTimer = setTimeout(() => {
             timers.current.delete(rocketTimer);
             launchRocketBatch();
@@ -557,21 +541,17 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
           timers.current.add(rocketTimer);
         });
       } else {
-        // จัดโคมเข้าวงแหวนรอบ "จุดหมุน" 2 จุด ฝั่งซ้าย-ขวาของจอ สลับกันไปทีละดวงแบบ golden-angle
-        // (เดิมมีจุดหมุนเดียวตรงกลางจอ ทำให้โคมกองรวมกันแคบ ๆ กลางจอ ทั้งที่จอกว้างกว่านั้นมาก
-        // ยิ่งกองแน่นยิ่งแลค เพราะ glow/เอฟเฟกต์ที่ทับซ้อนกันต้องเรนเดอร์ซ้ำในพื้นที่เดียว)
+        // จัดโคมเข้าวงแหวนรอบโคมประธานแบบ golden-angle กระจายสม่ำเสมอ
+        // ไม่ทับกันแม้จะสะสมเพิ่มขึ้นเรื่อย ๆ โดยไม่ต้องรื้อตำแหน่งโคมเก่า
         const idx = orbitIndex.current++;
-        const isRightHub = idx % 2 === 1;
-        const hubIdx = Math.floor(idx / 2);
-        const ring = hubIdx % ORBIT_RING_COUNT;
-        const posInRing = Math.floor(hubIdx / ORBIT_RING_COUNT);
+        const ring = idx % ORBIT_RING_COUNT;
+        const posInRing = Math.floor(idx / ORBIT_RING_COUNT);
         const angleDeg = posInRing * GOLDEN_ANGLE_DEG + ring * (360 / ORBIT_RING_COUNT) * 0.5;
         const radiusVmin =
           ORBIT_BASE_RADIUS_VMIN + ring * ORBIT_RADIUS_STEP_VMIN + (Math.random() - 0.5) * 2.5;
         const periodSec =
           ORBIT_BASE_PERIOD_SEC + ring * ORBIT_PERIOD_STEP_SEC + (Math.random() - 0.5) * 10;
         const phaseSec = (angleDeg / 360) * periodSec;
-        const anchorLeftVw = 50 + (isRightHub ? 1 : -1) * ORBIT_HUB_OFFSET_VW;
 
         const item: Flying = {
           key: `${doc.id}-${serial.current++}`,
@@ -585,9 +565,6 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
           phaseSec,
           twinkleDur: 2 + Math.random() * 3,
           twinkleDelay: Math.random() * 3,
-          // ลอยขึ้นตรง ๆ เหมือนโคมประธาน แค่สุ่มความเร็วเล็กน้อยกันดูลอยพร้อมกันเป๊ะ
-          riseDuration: 6 + Math.random() * 3,
-          anchorLeftVw,
         };
 
         setFlying((prev) => {
@@ -607,8 +584,8 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
   const enqueue = useCallback((doc: LanternDoc) => {
     if (seen.current.has(doc.id)) return;
     seen.current.add(doc.id);
-    // โคมประธานมาจาก /admin เท่านั้น ไม่ผ่านประตูมอนิเตอร์ — ปล่อยขึ้นจอทันทีเสมอ
-    if (doc.variant !== "chairman" && !gateOpenRef.current) {
+    // โคมประธาน/รองประธานมาจาก /1 /2 /3 เท่านั้น ไม่ผ่านประตูมอนิเตอร์ — ปล่อยขึ้นจอทันทีเสมอ
+    if (!doc.variant && !gateOpenRef.current) {
       held.current.push(doc);
       return;
     }
@@ -628,7 +605,9 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
       timers.current.clear();
       setFlying([]);
       setRockets([]);
-      setChairman(null);
+      setChairmanMain(null);
+      setChairmanLeft(null);
+      setChairmanRight(null);
       onCount?.(0);
     },
   }));
@@ -646,40 +625,31 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
       // โหมดซ้อม ไม่ผูกกับประตูมอนิเตอร์จริง ให้ปล่อยทันทีเสมอ
       gateOpenRef.current = true;
 
-      // โคมประธานตัวอย่าง ให้พรีวิวจดหมายได้โดยไม่ต้องเขียน Firestore จริง
+      // โคมประธาน + รองประธานซ้าย/ขวา ตัวอย่าง ให้พรีวิวจดหมายได้โดยไม่ต้องเขียน Firestore จริง
       enqueue({
         id: "demo-chairman",
         text: "เปิดโลกปฐมวัยไทขอนแก่น\nประจำปี 2569",
         subtitle: "ดร. สุภชัย จันปุ่ม",
         designId: "chairman-gold",
         variant: "chairman",
+        photoUrl: "/chairmen/chairman-main.png",
       });
-
-      // โคมประธานคนที่ 2 (มีรูป ไม่มีข้อความเปิดงาน) — รอให้โคมแรกแสดงจบก่อนค่อยต่อคิว
-      const toChairman2 = setTimeout(() => {
-        enqueue({
-          id: "demo-chairman-2",
-          text: "",
-          subtitle: "นายวัชระ อันโยธา",
-          designId: "chairman-gold",
-          variant: "chairman",
-          photoUrl: "/chairman-photo-wachara.png",
-        });
-      }, 25000);
-      currentTimers.add(toChairman2);
-
-      // โคมประธานคนที่ 3 (มีรูป ไม่มีข้อความเปิดงาน) — ต่อคิวหลังคนที่ 2 แสดงจบ
-      const toChairman3 = setTimeout(() => {
-        enqueue({
-          id: "demo-chairman-3",
-          text: "",
-          subtitle: "ธีรัช คำยิ่ง",
-          designId: "chairman-gold",
-          variant: "chairman",
-          photoUrl: "/chairman-photo-theerat.png",
-        });
-      }, 50000);
-      currentTimers.add(toChairman3);
+      enqueue({
+        id: "demo-chairman-left",
+        text: "",
+        subtitle: "นายวัชระ อันโยธา",
+        designId: "chairman-gold",
+        variant: "chairman-left",
+        photoUrl: "/chairmen/chairman-left.png",
+      });
+      enqueue({
+        id: "demo-chairman-right",
+        text: "",
+        subtitle: "นายธีรัช คำยิ่ง",
+        designId: "chairman-gold",
+        variant: "chairman-right",
+        photoUrl: "/chairmen/chairman-right.png",
+      });
 
       const demo = setInterval(() => {
         enqueue({
@@ -698,7 +668,7 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
     }
 
     // ประตูมอนิเตอร์ — โคมของผู้ร่วมงานจะถูกกักไว้ (held) จนกว่าจะกดปล่อยจากหน้า /m
-    // โคมประธานไม่เกี่ยวข้องกับประตูนี้ (ควบคุมแยกจากหน้า /admin)
+    // โคมประธานไม่เกี่ยวข้องกับประตูนี้ (ควบคุมแยกจากหน้า /1 /2 /3)
     const releaseHeld = () => {
       if (held.current.length > 0) {
         queue.current.push(...held.current);
@@ -744,12 +714,37 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
         <SkyRocketView key={r.id} rocket={r} onDone={removeRocket} />
       ))}
 
-      {chairman && (
+      {chairmanLeft && (
+        <div className="chairman-anchor-left" style={{ zIndex: 29 } as React.CSSProperties}>
+          <ChairmanLantern
+            key={chairmanLeft.key}
+            item={chairmanLeft}
+            design={getDesign(chairmanLeft.doc.designId)}
+            onLeave={handleChairmanLeftLeave}
+            size="deputy"
+          />
+        </div>
+      )}
+
+      {chairmanRight && (
+        <div className="chairman-anchor-right" style={{ zIndex: 29 } as React.CSSProperties}>
+          <ChairmanLantern
+            key={chairmanRight.key}
+            item={chairmanRight}
+            design={getDesign(chairmanRight.doc.designId)}
+            onLeave={handleChairmanRightLeave}
+            size="deputy"
+          />
+        </div>
+      )}
+
+      {chairmanMain && (
         <div className="chairman-anchor" style={{ zIndex: 30 } as React.CSSProperties}>
           <ChairmanLantern
-            item={chairman}
-            design={getDesign(chairman.doc.designId)}
-            onLeave={handleChairmanLeave}
+            key={chairmanMain.key}
+            item={chairmanMain}
+            design={getDesign(chairmanMain.doc.designId)}
+            onLeave={handleChairmanMainLeave}
           />
         </div>
       )}
@@ -757,16 +752,7 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
       {flying.map((item) => {
         const design = getDesign(item.doc.designId);
         return (
-          <div
-            key={item.key}
-            className="orbit-anchor"
-            style={
-              {
-                left: `${item.anchorLeftVw}vw`,
-                "--rise-dur": `${item.riseDuration}s`,
-              } as React.CSSProperties
-            }
-          >
+          <div key={item.key} className="orbit-anchor">
             <div
               className="orbit-spin"
               style={
@@ -787,27 +773,39 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
                   }
                 >
                   <div
-                    className="lantern-sway lantern-sway-twinkle relative"
+                    className="orbit-twinkle"
                     style={
                       {
-                        "--sway": `${item.sway}px`,
-                        "--sway-dur": `${item.swayDuration}s`,
-                        "--tilt": `${item.tilt}deg`,
                         "--twinkle-dur": `${item.twinkleDur}s`,
                         "--twinkle-delay": `${item.twinkleDelay}s`,
                       } as React.CSSProperties
                     }
                   >
                     <div
-                      className="lantern-halo"
-                      style={{ "--glow": design.glow } as React.CSSProperties}
-                    />
-                    <Lantern
-                      design={design}
-                      text={item.doc.text}
-                      width={BASE_WIDTH * item.scale}
-                      style={{ position: "relative", zIndex: 1 }}
-                    />
+                      className="lantern-sway relative"
+                      style={
+                        {
+                          "--sway": `${item.sway}px`,
+                          "--sway-dur": `${item.swayDuration}s`,
+                          "--tilt": `${item.tilt}deg`,
+                        } as React.CSSProperties
+                      }
+                    >
+                      <div
+                        className="lantern-halo"
+                        style={{ "--glow": design.glow } as React.CSSProperties}
+                      />
+                      <Lantern
+                        design={design}
+                        text={item.doc.text}
+                        width={BASE_WIDTH * item.scale}
+                        style={{
+                          position: "relative",
+                          zIndex: 1,
+                          filter: `drop-shadow(0 0 ${18 * item.scale}px ${design.glow}aa)`,
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

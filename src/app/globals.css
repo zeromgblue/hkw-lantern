@@ -109,6 +109,25 @@ body {
   }
 }
 
+/* รองประธานซ้าย/ขวา — ขนาบข้างโคมประธานหลัก ใช้แอนิเมชันลอยขึ้นชุดเดียวกัน */
+.chairman-anchor-left {
+  position: absolute;
+  left: 21%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  animation: chairman-anchor-in 4.6s cubic-bezier(0.33, 0, 0.2, 1);
+  will-change: transform, opacity;
+}
+
+.chairman-anchor-right {
+  position: absolute;
+  left: 79%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  animation: chairman-anchor-in 4.6s cubic-bezier(0.33, 0, 0.2, 1);
+  will-change: transform, opacity;
+}
+
 .chairman-float-out {
   transform: translateY(0);
   opacity: 1;
@@ -143,22 +162,6 @@ body {
   top: 48%;
   width: 0;
   height: 0;
-  opacity: 0;
-  animation: orbit-rise-in var(--rise-dur, 7s) cubic-bezier(0.37, 0, 0.63, 1) forwards;
-}
-
-@keyframes orbit-rise-in {
-  0% {
-    opacity: 0;
-    transform: translateY(60vh);
-  }
-  8% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .orbit-spin {
@@ -187,11 +190,13 @@ body {
   position: absolute;
   left: 0;
   top: 0;
-  animation-name: orbit-rotate-ccw;
-  animation-duration: var(--period, 80s);
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-  animation-delay: var(--phase, 0s);
+  opacity: 0;
+  animation-name: orbit-rotate-ccw, orbit-fade-in;
+  animation-duration: var(--period, 80s), 1s;
+  animation-timing-function: linear, ease-out;
+  animation-iteration-count: infinite, 1;
+  animation-delay: var(--phase, 0s), 0s;
+  animation-fill-mode: none, forwards;
 }
 
 @keyframes orbit-rotate-cw {
@@ -212,6 +217,19 @@ body {
   }
 }
 
+@keyframes orbit-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.orbit-twinkle {
+  opacity: 1;
+}
+
 .lantern-sway {
   will-change: transform;
   animation: sway var(--sway-dur, 7s) ease-in-out infinite alternate;
@@ -223,26 +241,6 @@ body {
   }
   to {
     transform: translateX(var(--sway)) rotate(var(--tilt));
-  }
-}
-
-/* โคมทั่วไปวิบวับความสว่างเบา ๆ — รวมมาไว้ในชั้นเดียวกับ sway แทนที่จะแยกเป็น wrapper
-   ต่างหาก (ประหยัด DOM node + compositor layer ต่อโคมหนึ่งชั้น สำคัญมากตอนมีเป็นร้อยดวง) */
-.lantern-sway-twinkle {
-  animation-name: sway, twinkle;
-  animation-duration: var(--sway-dur, 7s), var(--twinkle-dur, 3s);
-  animation-timing-function: ease-in-out, ease-in-out;
-  animation-iteration-count: infinite, infinite;
-  animation-delay: 0s, var(--twinkle-delay, 0s);
-  animation-direction: alternate, alternate;
-}
-
-@keyframes twinkle {
-  from {
-    opacity: 0.78;
-  }
-  to {
-    opacity: 1;
   }
 }
 
@@ -363,9 +361,7 @@ body {
   top: 0;
   border-radius: 50%;
   background: var(--pcolor, #ffd84d);
-  box-shadow:
-    0 0 5px 1.5px #fffbe8,
-    0 0 18px 6px var(--pcolor, #ffd84d);
+  box-shadow: 0 0 6px 2px var(--pcolor, #ffd84d);
   opacity: 0;
   animation: firework-fly var(--dur, 1s) ease-out forwards;
   animation-delay: var(--delay, 0s);
@@ -447,15 +443,15 @@ body {
   position: absolute;
   left: 50%;
   top: 88%;
-  width: 48px;
-  height: 48px;
-  margin: -24px 0 0 -24px;
+  width: 32px;
+  height: 32px;
+  margin: -16px 0 0 -16px;
   border-radius: 50%;
   background: radial-gradient(circle, #fffaf0 0%, #ffd84d 40%, transparent 72%);
   opacity: 0;
   z-index: 4;
   pointer-events: none;
-  animation: chairman-flash-pop 0.9s ease-out forwards;
+  animation: chairman-flash-pop 0.75s ease-out forwards;
 }
 
 @keyframes chairman-flash-pop {
@@ -464,38 +460,10 @@ body {
     opacity: 0.95;
   }
   55% {
-    opacity: 0.8;
+    opacity: 0.75;
   }
   100% {
-    transform: scale(10);
-    opacity: 0;
-  }
-}
-
-/* แสงวาบเต็มจอตอนโคมประธานเปิดตัว — ฉาบท้องฟ้ารอบ ๆ ให้รู้สึกอลังการเป็นไคลแมกซ์ */
-.grand-flash {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 220vmax;
-  height: 220vmax;
-  translate: -50% -50%;
-  z-index: -1;
-  pointer-events: none;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 246, 214, 0.55) 0%, rgba(255, 184, 77, 0.24) 32%, transparent 68%);
-  opacity: 0;
-  animation: grand-flash-pop 1s ease-out forwards;
-}
-
-@keyframes grand-flash-pop {
-  0% {
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  100% {
+    transform: scale(6);
     opacity: 0;
   }
 }
@@ -544,6 +512,14 @@ body {
     linear-gradient(165deg, #faf1da 0%, #f1e0b6 58%, #e7d09d 100%);
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.48), inset 0 0 36px rgba(120, 80, 30, 0.18);
   overflow: hidden;
+}
+
+/* จดหมายของรองประธาน (ซ้าย/ขวา) — แคบลงแต่ยาวลงมากว่าเดิม ให้ดูเป็นป้ายห้อยยาวขนาบสองข้าง */
+.chairman-scroll-paper-v-deputy {
+  width: clamp(220px, 22vw, 360px);
+  min-height: clamp(360px, 30vw, 520px);
+  justify-content: center;
+  padding: 56px 24px 90px;
 }
 
 .chairman-scroll-paper-v::after {
@@ -748,16 +724,54 @@ body {
   }
 }
 
+/* รูปประธาน/รองประธาน — เหรียญวงกลมขอบทอง แสดงบนสุดของจดหมายก่อนข้อความ */
+.chairman-portrait {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: clamp(170px, 19vw, 300px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 5px solid #f0c14b;
+  box-shadow: 0 0 24px rgba(255, 200, 80, 0.55), inset 0 0 14px rgba(0, 0, 0, 0.3);
+  background: #1a1108;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.chairman-portrait img {
+  object-fit: cover;
+  object-position: center top;
+}
+
+.chairman-portrait-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.chairman-portrait-deputy {
+  /* % ของความกว้างจดหมายรองประธาน กันไม่ให้รูปล้นกรอบตอนจอแคบ */
+  width: min(82%, 290px);
+  border-width: 4px;
+}
+
 .chairman-scroll-text {
   position: relative;
   z-index: 1;
   display: block;
   font-family: var(--font-letter), var(--font-thai), sans-serif;
   font-weight: 700;
-  font-size: clamp(23px, 2.8vw, 40px);
-  line-height: 1.6;
+  font-size: clamp(30px, 3.6vw, 52px);
+  line-height: 1.55;
   color: #3a2108;
   text-align: center;
+  -webkit-text-stroke: 0.6px #3a2108;
+}
+
+.chairman-scroll-text-deputy {
+  font-size: clamp(20px, 2.4vw, 34px);
 }
 
 .chairman-letter-char {
@@ -785,51 +799,28 @@ body {
   }
 }
 
-.chairman-scroll-photo {
-  position: relative;
-  z-index: 1;
-  display: block;
-  width: clamp(56px, 6vw, 88px);
-  height: clamp(56px, 6vw, 88px);
-  border-radius: 50%;
-  overflow: hidden;
-  border: 3px solid #a3242c;
-  box-shadow: 0 0 0 2px #f4d9a0, 0 4px 14px rgba(0, 0, 0, 0.35);
-  opacity: 0;
-  transform: translateY(-4px) scale(0.9);
-  transition: opacity 0.6s ease, transform 0.6s ease;
-}
-
-.chairman-scroll-photo img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: top center;
-}
-
-.chairman-scroll-photo-visible {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
 .chairman-scroll-name {
   position: relative;
   z-index: 1;
   display: block;
   font-family: var(--font-letter), var(--font-thai), sans-serif;
-  font-size: clamp(17px, 1.7vw, 26px);
+  font-size: clamp(21px, 2.2vw, 32px);
   font-weight: 700;
   color: #8a1f1f;
   text-align: center;
   opacity: 0;
   transform: translateY(-4px);
   transition: opacity 0.6s ease, transform 0.6s ease;
+  -webkit-text-stroke: 0.5px #8a1f1f;
 }
 
 .chairman-scroll-name-visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+.chairman-scroll-name-deputy {
+  font-size: clamp(28px, 3.4vw, 44px);
 }
 
 .chairman-seal {
@@ -872,17 +863,11 @@ body {
   .firework-particle,
   .firework-rocket,
   .chairman-flash,
-  .grand-flash,
   .chairman-scroll-paper-v::after,
-  .orbit-anchor,
   .orbit-spin,
   .orbit-counter-spin,
-  .lantern-sway-twinkle,
+  .orbit-twinkle,
   .chairman-float-out-leaving {
     animation: none;
-  }
-
-  .orbit-anchor {
-    opacity: 1;
   }
 }
