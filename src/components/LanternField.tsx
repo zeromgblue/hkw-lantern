@@ -4,6 +4,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import Image from "next/image";
 import { Lantern } from "./Lantern";
 import { getDesign, LANTERN_DESIGNS, type LanternDesign } from "@/lib/lanternDesigns";
+import { playFireworkBoom } from "@/lib/fireworkSound";
 import {
   fetchRecentLanterns,
   listenForNewLanterns,
@@ -57,6 +58,7 @@ const ORBIT_BASE_PERIOD_SEC = 70;
 const ORBIT_PERIOD_STEP_SEC = 16;
 const GOLDEN_ANGLE_DEG = 137.50776;
 const CHAIRMAN_SCALE = 1.4;
+const DEPUTY_CHAIRMAN_SCALE = 1.1;
 const CHAIRMAN_IMG_WIDTH = 210;
 const CHAIRMAN_IMG_RATIO = 1536 / 1024;
 const CHAIRMAN_OPEN_DELAY_MS = 4200;
@@ -159,6 +161,7 @@ function SkyRocketView({ rocket, onDone }: { rocket: SkyRocket; onDone: (id: num
     const toBurst = setTimeout(() => {
       setPhase("burst");
       setParticles(makeFireworkParticles(34, 1.3));
+      playFireworkBoom(0.85);
     }, rocket.flightMs);
     const toDone = setTimeout(() => onDone(rocket.id), rocket.flightMs + 1600);
     return () => {
@@ -215,10 +218,13 @@ function ChairmanLantern({
   item,
   design,
   onLeave,
+  size = "main",
 }: {
   item: ChairmanItem;
   design: LanternDesign;
   onLeave: () => void;
+  /** โคมรองประธาน (ซ้าย/ขวา) ใช้จดหมายขนาดย่อมกว่าโคมประธานหลัก กันชนกันตอนปล่อยพร้อมกัน */
+  size?: "main" | "deputy";
 }) {
   const [phase, setPhase] = useState<ChairmanPhase>("rising");
   const [typedCount, setTypedCount] = useState(0);
@@ -236,12 +242,14 @@ function ChairmanLantern({
       setFlashId(Date.now());
       // พลุชุดใหญ่ตรงจังหวะที่โคมแปลงร่างเป็นจดหมาย
       setBurst({ id: Date.now() + 1, particles: makeFireworkParticles(42, 1.5) });
+      playFireworkBoom(1.3);
     }, CHAIRMAN_OPEN_DELAY_MS);
     const toTyping = setTimeout(() => setPhase("typing"), CHAIRMAN_TYPE_START_MS);
 
     // พลุระลอกต่อ ๆ ไปทุก 3.4 วิ แต่หยุดหลังจากช่วงเปิดตัว ไม่ยิงตลอดไป
     const burstInterval = setInterval(() => {
       setBurst({ id: Date.now(), particles: makeFireworkParticles() });
+      playFireworkBoom(1);
     }, 3400);
     const stopBursts = setTimeout(() => clearInterval(burstInterval), CHAIRMAN_FIREWORKS_DURATION_MS);
 
@@ -262,9 +270,9 @@ function ChairmanLantern({
     return () => clearInterval(interval);
   }, [phase, eventChars.length]);
 
-  // พิมพ์จบแล้วค่อยเผยชื่อประธานด้านล่าง
+  // พิมพ์จบแล้วค่อยเผยชื่อประธานด้านล่าง (ไม่มีข้อความเลยก็ต้องเผยชื่อได้ เช่นจดหมายรองประธานที่ไม่มีข้อความงาน)
   useEffect(() => {
-    if (phase === "typing" && eventChars.length > 0 && typedCount >= eventChars.length) {
+    if (phase === "typing" && typedCount >= eventChars.length) {
       const t = setTimeout(() => setPhase("revealName"), CHAIRMAN_NAME_DELAY_MS);
       return () => clearTimeout(t);
     }
@@ -334,7 +342,7 @@ function ChairmanLantern({
       {/* จดหมายกางออกลงด้านล่าง ห้อยจากกระบอกใต้โคม เหมือนม้วนสาส์นจีนโบราณ */}
       <div className={`chairman-scroll-v${scrollOpen ? " chairman-scroll-v-open" : ""}`}>
         <span className="chairman-scroll-cap" />
-        <span className="chairman-scroll-paper-v">
+        <span className={`chairman-scroll-paper-v${size === "deputy" ? " chairman-scroll-paper-v-deputy" : ""}`}>
           <svg className="chairman-inkwash" viewBox="0 0 400 260" preserveAspectRatio="none" aria-hidden="true">
             <defs>
               <linearGradient id="ink-far" x1="0" y1="0" x2="0" y2="1">
@@ -384,18 +392,32 @@ function ChairmanLantern({
             <path d="M8 24 Q8 8 24 8" fill="none" stroke="#c9a24a" strokeWidth="1.2" opacity="0.6" />
           </svg>
 
-          <span className="chairman-scroll-text">
-            {eventChars.slice(0, typedCount).map((ch, i) =>
-              ch === "\n" ? (
-                <br key={i} />
-              ) : (
-                <span key={i} className="chairman-letter-char">
-                  {ch}
-                </span>
-              ),
-            )}
-          </span>
-          <span className={`chairman-scroll-name${showName ? " chairman-scroll-name-visible" : ""}`}>
+          {item.doc.photoUrl && (
+            <span
+              className={`chairman-portrait${size === "deputy" ? " chairman-portrait-deputy" : ""}${
+                scrollOpen ? " chairman-portrait-visible" : ""
+              }`}
+            >
+              <Image src={item.doc.photoUrl} alt="" fill sizes="220px" unoptimized />
+            </span>
+          )}
+
+          {eventChars.length > 0 && (
+            <span className={`chairman-scroll-text${size === "deputy" ? " chairman-scroll-text-deputy" : ""}`}>
+              {eventChars.slice(0, typedCount).map((ch, i) =>
+                ch === "\n" ? (
+                  <br key={i} />
+                ) : (
+                  <span key={i} className="chairman-letter-char">
+                    {ch}
+                  </span>
+                ),
+              )}
+            </span>
+          )}
+          <span
+            className={`chairman-scroll-name${size === "deputy" ? " chairman-scroll-name-deputy" : ""}${showName ? " chairman-scroll-name-visible" : ""}`}
+          >
             {nameText}
           </span>
 
@@ -462,8 +484,12 @@ function ChairmanLantern({
 export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: number) => void }>(
   function LanternField({ onCount }, ref) {
   const [flying, setFlying] = useState<Flying[]>([]);
-  const [chairman, setChairman] = useState<ChairmanItem | null>(null);
-  const handleChairmanLeave = useCallback(() => setChairman(null), []);
+  const [chairmanMain, setChairmanMain] = useState<ChairmanItem | null>(null);
+  const [chairmanLeft, setChairmanLeft] = useState<ChairmanItem | null>(null);
+  const [chairmanRight, setChairmanRight] = useState<ChairmanItem | null>(null);
+  const handleChairmanMainLeave = useCallback(() => setChairmanMain(null), []);
+  const handleChairmanLeftLeave = useCallback(() => setChairmanLeft(null), []);
+  const handleChairmanRightLeave = useCallback(() => setChairmanRight(null), []);
   const [rockets, setRockets] = useState<SkyRocket[]>([]);
   const queue = useRef<LanternDoc[]>([]);
   const held = useRef<LanternDoc[]>([]);
@@ -488,18 +514,23 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
 
   const spawn = useCallback(
     (doc: LanternDoc) => {
-      const isChairman = doc.variant === "chairman";
+      const isChairman =
+        doc.variant === "chairman" || doc.variant === "chairman-left" || doc.variant === "chairman-right";
 
       if (isChairman) {
-        // โคมประธานอยู่กลางจอถาวร ไม่ลอยหายไปอีก
-        setChairman({
+        // โคมประธาน/รองประธานอยู่กลางจอ (หรือซ้าย/ขวา) ถาวร ไม่ลอยหายไปอีก
+        const item: ChairmanItem = {
           key: `${doc.id}-${serial.current++}`,
           doc,
-          scale: CHAIRMAN_SCALE,
+          scale: doc.variant === "chairman" ? CHAIRMAN_SCALE : DEPUTY_CHAIRMAN_SCALE,
           swayDuration: 7 + Math.random() * 2,
           sway: 8 + Math.random() * 6,
           tilt: 1 + Math.random(),
-        });
+        };
+
+        if (doc.variant === "chairman-left") setChairmanLeft(item);
+        else if (doc.variant === "chairman-right") setChairmanRight(item);
+        else setChairmanMain(item);
 
         // ยิงพลุจากซ้าย-ขวาเป็นชุด ๆ ช่วงที่โคมประธานปรากฏตัว
         [200, 1900, 3600, 5300, 7000].forEach((delay) => {
@@ -553,8 +584,8 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
   const enqueue = useCallback((doc: LanternDoc) => {
     if (seen.current.has(doc.id)) return;
     seen.current.add(doc.id);
-    // โคมประธานมาจาก /admin เท่านั้น ไม่ผ่านประตูมอนิเตอร์ — ปล่อยขึ้นจอทันทีเสมอ
-    if (doc.variant !== "chairman" && !gateOpenRef.current) {
+    // โคมประธาน/รองประธานมาจาก /1 /2 /3 เท่านั้น ไม่ผ่านประตูมอนิเตอร์ — ปล่อยขึ้นจอทันทีเสมอ
+    if (!doc.variant && !gateOpenRef.current) {
       held.current.push(doc);
       return;
     }
@@ -564,11 +595,20 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
   useImperativeHandle(ref, () => ({
     clear: () => {
       queue.current = [];
+      // สำคัญ: ต้องเคลียร์ held/seen/total ด้วย ไม่งั้นโคมที่ถูกกักรอประตูเปิดอยู่
+      // (submit ไว้ตอนประตูยังปิด) จะโผล่กลับมาใหม่ทันทีที่ประตูเปิด ทั้งที่ถูกลบจาก Firestore ไปแล้ว
+      held.current = [];
+      seen.current.clear();
+      total.current = 0;
+      orbitIndex.current = 0;
       timers.current.forEach(clearTimeout);
       timers.current.clear();
       setFlying([]);
       setRockets([]);
-      setChairman(null);
+      setChairmanMain(null);
+      setChairmanLeft(null);
+      setChairmanRight(null);
+      onCount?.(0);
     },
   }));
 
@@ -585,13 +625,30 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
       // โหมดซ้อม ไม่ผูกกับประตูมอนิเตอร์จริง ให้ปล่อยทันทีเสมอ
       gateOpenRef.current = true;
 
-      // โคมประธานตัวอย่าง ให้พรีวิวจดหมายได้โดยไม่ต้องเขียน Firestore จริง
+      // โคมประธาน + รองประธานซ้าย/ขวา ตัวอย่าง ให้พรีวิวจดหมายได้โดยไม่ต้องเขียน Firestore จริง
       enqueue({
         id: "demo-chairman",
         text: "เปิดโลกปฐมวัยไทขอนแก่น\nประจำปี 2569",
         subtitle: "ดร. สุภชัย จันปุ่ม",
         designId: "chairman-gold",
         variant: "chairman",
+        photoUrl: "/chairmen/chairman-main.png",
+      });
+      enqueue({
+        id: "demo-chairman-left",
+        text: "",
+        subtitle: "นายวัชระ อันโยธา",
+        designId: "chairman-gold",
+        variant: "chairman-left",
+        photoUrl: "/chairmen/chairman-left.png",
+      });
+      enqueue({
+        id: "demo-chairman-right",
+        text: "",
+        subtitle: "นายธีรัช คำยิ่ง",
+        designId: "chairman-gold",
+        variant: "chairman-right",
+        photoUrl: "/chairmen/chairman-right.png",
       });
 
       const demo = setInterval(() => {
@@ -611,7 +668,7 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
     }
 
     // ประตูมอนิเตอร์ — โคมของผู้ร่วมงานจะถูกกักไว้ (held) จนกว่าจะกดปล่อยจากหน้า /m
-    // โคมประธานไม่เกี่ยวข้องกับประตูนี้ (ควบคุมแยกจากหน้า /admin)
+    // โคมประธานไม่เกี่ยวข้องกับประตูนี้ (ควบคุมแยกจากหน้า /1 /2 /3)
     const releaseHeld = () => {
       if (held.current.length > 0) {
         queue.current.push(...held.current);
@@ -657,12 +714,37 @@ export const LanternField = forwardRef<LanternFieldHandle, { onCount?: (total: n
         <SkyRocketView key={r.id} rocket={r} onDone={removeRocket} />
       ))}
 
-      {chairman && (
+      {chairmanLeft && (
+        <div className="chairman-anchor-left" style={{ zIndex: 29 } as React.CSSProperties}>
+          <ChairmanLantern
+            key={chairmanLeft.key}
+            item={chairmanLeft}
+            design={getDesign(chairmanLeft.doc.designId)}
+            onLeave={handleChairmanLeftLeave}
+            size="deputy"
+          />
+        </div>
+      )}
+
+      {chairmanRight && (
+        <div className="chairman-anchor-right" style={{ zIndex: 29 } as React.CSSProperties}>
+          <ChairmanLantern
+            key={chairmanRight.key}
+            item={chairmanRight}
+            design={getDesign(chairmanRight.doc.designId)}
+            onLeave={handleChairmanRightLeave}
+            size="deputy"
+          />
+        </div>
+      )}
+
+      {chairmanMain && (
         <div className="chairman-anchor" style={{ zIndex: 30 } as React.CSSProperties}>
           <ChairmanLantern
-            item={chairman}
-            design={getDesign(chairman.doc.designId)}
-            onLeave={handleChairmanLeave}
+            key={chairmanMain.key}
+            item={chairmanMain}
+            design={getDesign(chairmanMain.doc.designId)}
+            onLeave={handleChairmanMainLeave}
           />
         </div>
       )}

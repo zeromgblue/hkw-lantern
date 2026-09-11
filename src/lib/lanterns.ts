@@ -22,25 +22,43 @@ export const MAX_TEXT_LENGTH = 40;
 const CHAIRMAN_DESIGN_ID = "chairman-gold";
 const CHAIRMAN_EVENT_TEXT = "เปิดโลกปฐมวัยไทขอนแก่น\nประจำปี 2569";
 const CHAIRMAN_NAME_TEXT = "ดร. สุภชัย จันปุ่ม";
+const CHAIRMAN_PHOTO_URL = "/chairmen/chairman-main.png";
+
+// รองประธานซ้าย — ยืนยันแล้ว: นายวัชระ อันโยธา (จดหมายรองประธานไม่มีข้อความงาน เหลือแค่รูป+ชื่อ)
+const DEPUTY_LEFT_EVENT_TEXT = "";
+const DEPUTY_LEFT_NAME_TEXT = "นายวัชระ อันโยธา";
+const DEPUTY_LEFT_PHOTO_URL = "/chairmen/chairman-left.png";
+
+// รองประธานขวา — ยืนยันแล้ว: ธีรัช คำยิ่ง (จดหมายรองประธานไม่มีข้อความงาน เหลือแค่รูป+ชื่อ)
+const DEPUTY_RIGHT_EVENT_TEXT = "";
+const DEPUTY_RIGHT_NAME_TEXT = "นายธีรัช คำยิ่ง";
+const DEPUTY_RIGHT_PHOTO_URL = "/chairmen/chairman-right.png";
+
+export type ChairmanVariant = "chairman" | "chairman-left" | "chairman-right";
 
 export type LanternDoc = {
   id: string;
   text: string;
   designId: string;
-  variant?: "chairman";
+  variant?: ChairmanVariant;
   subtitle?: string;
+  photoUrl?: string;
 };
+
+const CHAIRMAN_VARIANTS: ChairmanVariant[] = ["chairman", "chairman-left", "chairman-right"];
 
 const lanternsRef = () => collection(db, "lanterns");
 
 function toLantern(doc: QueryDocumentSnapshot<DocumentData>): LanternDoc {
   const data = doc.data();
+  const variant = CHAIRMAN_VARIANTS.includes(data.variant) ? (data.variant as ChairmanVariant) : undefined;
   return {
     id: doc.id,
     text: typeof data.text === "string" ? data.text : "",
     designId: typeof data.designId === "string" ? data.designId : "classic-red",
-    variant: data.variant === "chairman" ? "chairman" : undefined,
+    variant,
     subtitle: typeof data.subtitle === "string" ? data.subtitle : undefined,
+    photoUrl: typeof data.photoUrl === "string" ? data.photoUrl : undefined,
   };
 }
 
@@ -52,15 +70,46 @@ export async function submitLantern(text: string, designId: string): Promise<voi
   });
 }
 
-/** โคมพิเศษของประธาน — เนื้อหาคงที่ ใช้จากหน้า /admin เท่านั้น */
-export async function submitChairmanLantern(): Promise<void> {
+async function submitChairmanVariant(
+  variant: ChairmanVariant,
+  text: string,
+  subtitle: string,
+  photoUrl?: string,
+): Promise<void> {
   await addDoc(lanternsRef(), {
-    text: CHAIRMAN_EVENT_TEXT,
-    subtitle: CHAIRMAN_NAME_TEXT,
+    text,
+    subtitle,
     designId: CHAIRMAN_DESIGN_ID,
-    variant: "chairman",
+    variant,
+    // Firestore addDoc ปฏิเสธค่า undefined ตรง ๆ — ใช้ null แทนเมื่อไม่มีรูป
+    photoUrl: photoUrl ?? null,
     createdAt: serverTimestamp(),
   });
+}
+
+/** โคมพิเศษของประธาน — เนื้อหาคงที่ ใช้จากหน้า /1 เท่านั้น */
+export async function submitChairmanLantern(): Promise<void> {
+  await submitChairmanVariant("chairman", CHAIRMAN_EVENT_TEXT, CHAIRMAN_NAME_TEXT, CHAIRMAN_PHOTO_URL);
+}
+
+/** โคมรองประธาน (ซ้าย) — ใช้จากหน้า /2 เท่านั้น */
+export async function submitDeputyChairmanLeft(): Promise<void> {
+  await submitChairmanVariant(
+    "chairman-left",
+    DEPUTY_LEFT_EVENT_TEXT,
+    DEPUTY_LEFT_NAME_TEXT,
+    DEPUTY_LEFT_PHOTO_URL,
+  );
+}
+
+/** โคมรองประธาน (ขวา) — ใช้จากหน้า /3 เท่านั้น */
+export async function submitDeputyChairmanRight(): Promise<void> {
+  await submitChairmanVariant(
+    "chairman-right",
+    DEPUTY_RIGHT_EVENT_TEXT,
+    DEPUTY_RIGHT_NAME_TEXT,
+    DEPUTY_RIGHT_PHOTO_URL,
+  );
 }
 
 /** โคมล่าสุดไม่กี่ดวง เอาไว้เติมท้องฟ้าตอนเปิดจอใหม่ ๆ จะได้ไม่ว่างเปล่า */

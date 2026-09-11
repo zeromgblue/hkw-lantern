@@ -109,6 +109,25 @@ body {
   }
 }
 
+/* รองประธานซ้าย/ขวา — ขนาบข้างโคมประธานหลัก ใช้แอนิเมชันลอยขึ้นชุดเดียวกัน */
+.chairman-anchor-left {
+  position: absolute;
+  left: 21%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  animation: chairman-anchor-in 4.6s cubic-bezier(0.33, 0, 0.2, 1);
+  will-change: transform, opacity;
+}
+
+.chairman-anchor-right {
+  position: absolute;
+  left: 79%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  animation: chairman-anchor-in 4.6s cubic-bezier(0.33, 0, 0.2, 1);
+  will-change: transform, opacity;
+}
+
 .chairman-float-out {
   transform: translateY(0);
   opacity: 1;
@@ -495,6 +514,14 @@ body {
   overflow: hidden;
 }
 
+/* จดหมายของรองประธาน (ซ้าย/ขวา) — แคบลงแต่ยาวลงมากว่าเดิม ให้ดูเป็นป้ายห้อยยาวขนาบสองข้าง */
+.chairman-scroll-paper-v-deputy {
+  width: clamp(220px, 22vw, 360px);
+  min-height: clamp(360px, 30vw, 520px);
+  justify-content: center;
+  padding: 56px 24px 90px;
+}
+
 .chairman-scroll-paper-v::after {
   content: "";
   position: absolute;
@@ -697,16 +724,54 @@ body {
   }
 }
 
+/* รูปประธาน/รองประธาน — เหรียญวงกลมขอบทอง แสดงบนสุดของจดหมายก่อนข้อความ */
+.chairman-portrait {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: clamp(170px, 19vw, 300px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 5px solid #f0c14b;
+  box-shadow: 0 0 24px rgba(255, 200, 80, 0.55), inset 0 0 14px rgba(0, 0, 0, 0.3);
+  background: #1a1108;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.chairman-portrait img {
+  object-fit: cover;
+  object-position: center top;
+}
+
+.chairman-portrait-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.chairman-portrait-deputy {
+  /* % ของความกว้างจดหมายรองประธาน กันไม่ให้รูปล้นกรอบตอนจอแคบ */
+  width: min(82%, 290px);
+  border-width: 4px;
+}
+
 .chairman-scroll-text {
   position: relative;
   z-index: 1;
   display: block;
   font-family: var(--font-letter), var(--font-thai), sans-serif;
   font-weight: 700;
-  font-size: clamp(23px, 2.8vw, 40px);
-  line-height: 1.6;
+  font-size: clamp(30px, 3.6vw, 52px);
+  line-height: 1.55;
   color: #3a2108;
   text-align: center;
+  -webkit-text-stroke: 0.6px #3a2108;
+}
+
+.chairman-scroll-text-deputy {
+  font-size: clamp(20px, 2.4vw, 34px);
 }
 
 .chairman-letter-char {
@@ -739,18 +804,23 @@ body {
   z-index: 1;
   display: block;
   font-family: var(--font-letter), var(--font-thai), sans-serif;
-  font-size: clamp(17px, 1.7vw, 26px);
+  font-size: clamp(21px, 2.2vw, 32px);
   font-weight: 700;
   color: #8a1f1f;
   text-align: center;
   opacity: 0;
   transform: translateY(-4px);
   transition: opacity 0.6s ease, transform 0.6s ease;
+  -webkit-text-stroke: 0.5px #8a1f1f;
 }
 
 .chairman-scroll-name-visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+.chairman-scroll-name-deputy {
+  font-size: clamp(28px, 3.4vw, 44px);
 }
 
 .chairman-seal {
