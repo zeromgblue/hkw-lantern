@@ -118,6 +118,12 @@ export async function fetchRecentLanterns(count = 10): Promise<LanternDoc[]> {
   return snapshot.docs.map(toLantern).reverse();
 }
 
+/** โคมทั้งหมดที่ผู้ร่วมงานปล่อยเอง ไม่รวมโคมพิเศษของประธาน/รองประธาน — ใช้อ่านย้อนหลังที่หน้า /hkw */
+export async function fetchAllGuestLanterns(): Promise<LanternDoc[]> {
+  const snapshot = await getDocs(query(lanternsRef(), orderBy("createdAt", "asc")));
+  return snapshot.docs.map(toLantern).filter((lantern) => !lantern.variant);
+}
+
 /** ลบโคมทั้งหมดถาวรจาก Firestore (ใช้กับปุ่มถังขยะบนจอใหญ่) */
 export async function clearAllLanterns(): Promise<void> {
   const snapshot = await getDocs(lanternsRef());
